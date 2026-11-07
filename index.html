@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deckplan — giant ship sector generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<aside class="side left">
+  <h1>Deckplan <small>Board a giant ship, one sector at a time. Procedural, printable, 1-inch squares.</small></h1>
+
+  <h3>Ship</h3>
+  <label><span>Seed</span></label>
+  <div class="seedbox"><input id="seed" type="text" maxlength="12" spellcheck="false"><button id="newseed" title="New ship">↻</button></div>
+  <label><span>Class</span><select id="cls"></select></label>
+  <label><span>Sector size</span><select id="size"></select></label>
+  <label><span>Condition</span><select id="condition"></select></label>
+  <div class="row"><button id="randomship" class="primary">New ship</button></div>
+
+  <h3>Sector</h3>
+  <div class="decks" id="decks"></div>
+  <div class="overview" id="overview"></div>
+  <p class="hint">Deck seen from above, prow to the left, port at the bottom. Click a sector, or click an exit arrow on the map to walk into the next sector. Visited sectors are remembered in this browser.</p>
+
+  <h3>Look</h3>
+  <label><span>Style</span><select id="mode"><option value="color">Colour</option><option value="plan">Plan (black and white)</option></select></label>
+  <label><span>Theme</span><select id="theme"></select></label>
+  <label><span>Labels</span><select id="labels"><option value="numbers">Numbers</option><option value="both">Numbers and names</option><option value="names">Names</option><option value="none">None</option></select></label>
+  <label><span>Zones</span><input id="zones" type="checkbox"></label>
+  <label><span>Page grid</span><input id="pagegrid" type="checkbox"></label>
+  <label><span>Zoom</span><input id="zoom" type="range" min="8" max="40" value="18"></label>
+
+  <h3>Print and export</h3>
+  <label><span>Layout</span><select id="playout"><option value="tiles">Whole sector, tiled pages</option><option value="rooms">Room by room pieces</option></select></label>
+  <label><span>Square size</span><select id="pscale"></select></label>
+  <label><span>Background</span><select id="pbg"><option value="white">White (saves ink)</option><option value="space">Space black</option></select></label>
+  <label><span>Key page</span><input id="pkey" type="checkbox" checked></label>
+  <div class="row"><button id="print" class="warm">Print…</button></div>
+  <div class="row"><button id="png">PNG</button><button id="svg">SVG</button><button id="copy">Copy link</button></div>
+  <p class="hint">Pages are US letter with ¼-inch margins. Tiles are 7×10 squares at 1 inch, so a medium sector is 16 pages. Cut on the dashed line and glue to card.</p>
+  <h3>Map code</h3>
+  <div class="code" id="code"></div>
+</aside>
+
+<main class="map-wrap">
+  <div class="toolbar"><span class="label">Sector</span><b id="seclabel"></b><span class="label" id="secmeta"></span><span class="grow"></span><button id="prevdeck" title="Deck above">▲ deck</button><button id="nextdeck" title="Deck below">▼ deck</button></div>
+  <div id="map"></div>
+</main>
+
+<aside class="side right" id="keypanel"></aside>
+<div id="print-root"></div>
+
+<script src="js/rng.js"></script>
+<script src="js/data.js"></script>
+<script src="js/hull.js"></script>
+<script src="js/geom.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/furnish.js"></script>
+<script src="js/render.js"></script>
+<script src="js/print.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
