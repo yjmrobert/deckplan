@@ -10,10 +10,16 @@
     R: { name: 'Survey vessel',  frames: 6,  laterals: 3, decks: 4, zoneW: { command: 1, habitation: 1, enginarium: 1.2, cargo: 1, armoury: 0.4, medicae: 1, sanctum: 0.3, science: 2.5, maintenance: 1.2, brig: 0.2, hangar: 0.8 } },
     P: { name: 'Prison barge',   frames: 6,  laterals: 3, decks: 5, zoneW: { command: 0.8, habitation: 1, enginarium: 1, cargo: 0.8, armoury: 1.2, medicae: 0.8, sanctum: 0.5, science: 0.2, maintenance: 1.2, brig: 3, hangar: 0.3 } },
     K: { name: 'Space hulk',     frames: 9,  laterals: 3, decks: 6, forceCondition: 'derelict', zoneW: { command: 0.8, habitation: 1, enginarium: 1, cargo: 1.2, armoury: 0.8, medicae: 0.6, sanctum: 0.8, science: 0.6, maintenance: 1.2, brig: 0.4, hangar: 0.6, void: 1.5 } },
-    // a playtest ship: one column of three sectors, two decks, so a whole ship prints in a sitting
-    C: { name: 'Cutter (small)', frames: 3,  laterals: 1, decks: 2, zoneW: { command: 1, habitation: 1, enginarium: 1.6, cargo: 1.3, armoury: 0.5, medicae: 0.5, sanctum: 0.2, science: 0.5, maintenance: 1.3, brig: 0.2, hangar: 0.6 } },
+    // the small end: one column of sectors, a few decks, so a whole ship prints in a sitting or two
+    C: { name: 'Cutter',         frames: 3,  laterals: 1, decks: 2, zoneW: { command: 1, habitation: 1, enginarium: 1.6, cargo: 1.3, armoury: 0.5, medicae: 0.5, sanctum: 0.2, science: 0.5, maintenance: 1.3, brig: 0.2, hangar: 0.6 } },
+    G: { name: 'Corvette',       frames: 4,  laterals: 1, decks: 3, zoneW: { command: 1.2, habitation: 1, enginarium: 1.5, cargo: 0.5, armoury: 2, medicae: 0.5, sanctum: 0.3, science: 0.3, maintenance: 1, brig: 0.3, hangar: 0.3 } },
+    M: { name: 'Mining tender',  frames: 6,  laterals: 1, decks: 3, zoneW: { command: 0.6, habitation: 1, enginarium: 1.5, cargo: 1.8, armoury: 0.2, medicae: 0.5, sanctum: 0.2, science: 0.5, maintenance: 2, brig: 0.2, hangar: 0.8 } },
+    F: { name: 'Free trader',    frames: 5,  laterals: 1, decks: 4, zoneW: { command: 0.8, habitation: 1.2, enginarium: 1.2, cargo: 2.5, armoury: 0.3, medicae: 0.4, sanctum: 0.3, science: 0.3, maintenance: 1.2, brig: 0.2, hangar: 0.5 } },
+    E: { name: 'Frigate',        frames: 5,  laterals: 3, decks: 3, zoneW: { command: 1.2, habitation: 1, enginarium: 1.3, cargo: 0.6, armoury: 1.8, medicae: 0.6, sanctum: 0.5, science: 0.4, maintenance: 1, brig: 0.4, hangar: 0.8 } },
   };
-  DP.CLASS_ORDER = ['W', 'T', 'L', 'R', 'P', 'K', 'C'];
+  // smallest first
+  DP.CLASS_ORDER = ['C', 'G', 'M', 'F', 'E', 'R', 'P', 'T', 'L', 'K', 'W'];
+  DP.classSectors = (k) => DP.CLASSES[k].frames * DP.CLASSES[k].laterals * DP.CLASSES[k].decks;
 
   // Sector sizes are whole letter pages at 1 inch: 7 x 10 squares per page.
   DP.SECTOR_SIZES = { xs: { name: 'Tiny (2×2 pages, 14×20)', w: 14, h: 20 }, s: { name: 'Small (3×3 pages, 21×30)', w: 21, h: 30 }, m: { name: 'Medium (4×4 pages, 28×40)', w: 28, h: 40 }, l: { name: 'Large (5×5 pages, 35×50)', w: 35, h: 50 } };

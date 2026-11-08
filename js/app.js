@@ -93,7 +93,7 @@
   // ---- wiring -------------------------------------------------------------------
   function fill(sel, entries) { const el = $(sel); el.innerHTML = ''; for (const [v, t] of entries) { const o = document.createElement('option'); o.value = v; o.textContent = t; el.appendChild(o); } }
   function init() {
-    fill('cls', DP.CLASS_ORDER.map(k => [k, DP.CLASSES[k].name]));
+    fill('cls', DP.CLASS_ORDER.map(k => [k, `${DP.CLASSES[k].name} · ${DP.CLASSES[k].frames}×${DP.CLASSES[k].laterals}×${DP.CLASSES[k].decks}, ${DP.classSectors(k)} sectors`]));
     fill('size', Object.entries(DP.SECTOR_SIZES).map(([k, v]) => [k, v.name]));
     fill('condition', Object.entries(DP.CONDITIONS));
     fill('build', Object.entries(DP.BUILDS));

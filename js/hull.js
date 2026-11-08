@@ -13,6 +13,10 @@
     P: { lens: 0.22, nose: 0.45, twoStage: 0.1, neck: 0.1,  waist: 0.1, aftIn: 0.12, engine: [10, 16], prowSetback: 0.3 },
     K: { lens: 0.3,  nose: 0.2,  twoStage: 0.5, neck: 0.2,  waist: 0.5, aftIn: 0.2,  engine: [8, 20],  prowSetback: 0.5 },
     C: { lens: 0.25, nose: 0.35, twoStage: 0,   neck: 0,    waist: 0,   aftIn: 0.2,  engine: [5, 9],   prowSetback: 0.4 },
+    G: { lens: 0.3,  nose: 0.25, twoStage: 0.3, neck: 0.15, waist: 0.2, aftIn: 0.25, engine: [6, 10],  prowSetback: 0.5 },
+    M: { lens: 0.15, nose: 0.5,  twoStage: 0,   neck: 0,    waist: 0.5, aftIn: 0.1,  engine: [8, 12],  prowSetback: 0.2 },
+    F: { lens: 0.2,  nose: 0.4,  twoStage: 0,   neck: 0,    waist: 0.1, aftIn: 0.15, engine: [6, 10],  prowSetback: 0.3 },
+    E: { lens: 0.35, nose: 0.15, twoStage: 0.6, neck: 0.2,  waist: 0.3, aftIn: 0.3,  engine: [8, 14],  prowSetback: 0.6 },
   };
 
   function profile(ship, d, side, params, rng) {

@@ -7,8 +7,9 @@ let fails = 0, built = 0, stats = { rooms: 0, doors: 0, props: 0, sealed: 0, dea
 const seeds = process.argv[2] ? [process.argv[2]] : ['ALPHA1', 'BRAVO2', 'CHRLY3', 'DELTA4', 'ECHO55', 'FXTROT'];
 const sizes = process.argv[3] ? process.argv[3].split(',') : ['xs', 's', 'm', 'l'];
 const builds = process.argv[4] ? process.argv[4].split(',') : ['organic', 'kit'];
+const classes = process.argv[5] ? process.argv[5].split(',') : DP.CLASS_ORDER;
 const FOOT = new Set(DP.KIT.footprints.map(([a, b]) => a + 'x' + b));
-for (const build of builds) for (const seed of seeds) for (const cls of DP.CLASS_ORDER) for (const size of sizes) for (const cond of ['intact', 'derelict']) {
+for (const build of builds) for (const seed of seeds) for (const cls of classes) for (const size of sizes) for (const cond of ['intact', 'derelict']) {
   if (build === 'kit' && seeds.indexOf(seed) >= 3) continue;   // the kit pass runs on half the seeds
   const ship = DP.makeShip({ seed, cls, size, condition: cond, build });
   const conn = DP.shipConnections(ship);

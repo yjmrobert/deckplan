@@ -13,8 +13,10 @@ deck to the one below. Above every deck runs a vent layer, a maze of crawlways w
 Walk the party in through an airlock on the outer hull and let them spend sessions digging toward
 the enginarium.
 
-For a quick playtest pick the **Cutter**: three sectors long, one wide, two decks, so the whole ship
-prints in a sitting at the tiny sector size.
+Classes run from a 6-sector **Cutter** (three frames, one lateral, two decks) through the Corvette,
+Mining tender, Free trader and Frigate up to the 210-sector Battlecruiser; the class picker shows each
+one's frames × laterals × decks. For a quick playtest the Cutter at the tiny sector size prints in a
+sitting.
 
 No build step, no server. Open `index.html` in a browser.
 
@@ -22,9 +24,10 @@ No build step, no server. Open `index.html` in a browser.
 
 - **Seed** — six characters. The same seed, class, size and condition always give the same ship,
   and the same sector of it always lays out the same way.
-- **Class** — Battlecruiser, Bulk freighter, Pilgrim liner, Survey vessel, Prison barge, Space hulk,
-  Cutter. The class sets the ship's dimensions and which zones you tend to find where (command toward
-  the prow and upper decks, enginarium aft, cargo and maintenance low, hangars on the flanks).
+- **Class** — Cutter, Corvette, Mining tender, Free trader, Frigate, Survey vessel, Prison barge,
+  Bulk freighter, Pilgrim liner, Space hulk, Battlecruiser, smallest first. The class sets the ship's
+  dimensions and which zones you tend to find where (command toward the prow and upper decks,
+  enginarium aft, cargo and maintenance low, hangars on the flanks).
 - **Condition** — Intact, Rundown (stains, debris, a few jammed doors) or Derelict (collapsed
   sections, more sealed and open doors, scorching and gore). Hulks are always derelict and also
   have walls that have given way between rooms.
