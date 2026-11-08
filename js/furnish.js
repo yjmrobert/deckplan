@@ -135,7 +135,13 @@
   R.laundry = (a) => { a.wall('machine', 1, 1, Math.round(a.area / 3)); a.centre('table', 2, 1); };
   R.gym = (a) => { a.scatter('bench', 2, 2, 1); a.wall('rack', 1, 1, 2); a.centre('mat', 2, 2); };
   R.engines = (a) => { (a.area >= 40 && a.centre('core', 3, 3)) || a.centre('generator', 2, 2); a.wall('bigtank', 2, 2, 2); a.wall('console', 1, 1, 3); a.scatter('barrel', 2); a.pipes(2); };
-  R.reactor = (a) => { (a.area >= 80 && a.centre('core', 4, 4)) || a.centre('core', 3, 3) || a.centre('generator', 2, 2); a.wall('console', 1, 1, 4); a.wall('tank', 1, 1, 4); a.pipes(3); a.decor('hazardfloor', 1, { r: 1 }); };
+  R.reactor = (a) => { (a.area >= 160 && a.centre('core', 5, 5)) || (a.area >= 80 && a.centre('core', 4, 4)) || a.centre('core', 3, 3) || a.centre('generator', 2, 2); a.wall('console', 1, 1, Math.max(4, Math.round(a.area / 20))); a.wall('bigtank', 2, 2, a.area >= 120 ? 2 : 0); a.wall('tank', 1, 1, 4); a.pipes(3); a.decor('hazardfloor', Math.max(1, Math.round(a.area / 80)), { r: 1 }); a.pillars(4); };
+  R.machinehall = (a) => { a.rows('generator', 2, 2, 2, { left: 1, top: 1, gap: 1 }); a.wall('console', 1, 1, 3); a.wall('workbench', 2, 1, 2); a.scatter('drum', 2); a.pipes(2); a.pillars(4); a.decor('stain', Math.round(a.area / 30)); };
+  R.fuelbay = (a) => { a.rows('bigtank', 2, 2, 1, { left: 1, top: 1, gap: 1 }); a.wall('pump', 1, 1, 3); a.scatter('drum', Math.max(2, Math.round(a.area / 15))); a.pipes(3); a.decor('hazardfloor', 2, { r: 1 }); };
+  R.conduit = (a) => { const long = a.bw >= a.bh ? ['N', 'S'] : ['W', 'E']; a.wall('tank', 1, 1, Math.max(2, Math.round(a.area / 6)), { sides: long, spacing: 1 }); a.wall('console', 1, 1, 1); a.pipes(4); a.decor('hazardfloor', Math.max(1, Math.round(a.area / 20)), { r: 0.8 }); a.pillars(3); };
+  R.capacitor = (a) => { a.wall('server', 1, 1, Math.round(a.area / 3), { allSides: true }); a.wall('console', 1, 1, 2); a.decor('hazardfloor', 1, { r: 0.8 }); };
+  R.bulkstore = (a) => { a.rows('bigcrate', 2, 2, 1, { left: 1, top: 1, gap: 0 }); a.scatter('forklift', 1, 1, 2); a.scatter('pallet', Math.round(a.area / 25), 2, 1); a.wall('crate', 1, 1, Math.round(a.area / 10)); a.pillars(4); };
+  R.shipbay = (a) => { a.scatter('shuttle', Math.max(1, Math.round(a.area / 60)), 3, 5); a.wall('crate', 1, 1, 4); a.scatter('drum', 3); a.scatter('pallet', 2, 2, 1); a.wall('bigtank', 2, 2, 1); a.decor('landing', 2, { r: 1.5 }); a.decor('hazardfloor', 2, { r: 1 }); a.pillars(4); };
   R.generator = (a) => { a.scatter('generator', Math.max(1, Math.round(a.area / 20)), 2, 2); a.wall('console', 1, 1, 2); a.scatter('barrel', 2); a.pipes(1); };
   R.workshop = R.tools = (a) => { a.wall('workbench', 2, 1, 2); a.wall('locker', 1, 1, 2); a.scatter('crate', 2); a.scatter('drum', 1); a.decor('stain', 1); };
   R.life = R.vents = (a) => { a.wall('bigtank', 2, 2, 2); a.wall('vent', 1, 1, 3); a.wall('console', 1, 1, 1); a.pipes(2); };
@@ -181,18 +187,72 @@
 
   function furnishCorridor(sec, room, rng, occ, api) {
     const width = Math.min(room.bbox.w, room.bbox.h);
+    if (sec.kit) return;   // kit corridors are plain straights
     if (room.type === 'passage') { api.decor('chevron', Math.max(1, Math.round(room.cells.length / 6)), { r: 0.4 }); return; }
     if (width >= 2) api.scatter('crate', Math.round(room.cells.length / 40));
     if (width >= 3) api.pillars(3);
     if (width >= 2 && room.depth === 0) api.decor('chevron', Math.round(room.cells.length / 12), { r: 0.4 });
   }
 
+  // ---- kit parts: one fixed furnishing per footprint and variant, the same on every ship ----------------
+  // Laid out in the part's own frame (short side across, origin top left) with the door slots kept free, then
+  // copied into the room, turned a quarter clockwise when the part is laid the other way round.
+  const KIT_CACHE = new Map();
+  DP.kitVariant = function (style, w, h, variant) {
+    const ck = style + '/' + w + 'x' + h + '/' + variant;
+    if (KIT_CACHE.has(ck)) return KIT_CACHE.get(ck);
+    const st = DP.KIT.styles[style];
+    const type = !st ? 'lift' : w * h >= 36 ? st.hall : st.small;
+    const cells = []; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) cells.push([x, y]);
+    const fake = { W: w, H: h, reserved: new Set(DP.kitSlots({ x: 0, y: 0, w, h }).map(([x, y]) => K(x, y))), pinned: new Set(), cuts: new Map(), props: [], decor: [], kit: true };
+    const room = { id: 0, type, kind: 'room', cells, set: new Set(cells.map(([x, y]) => K(x, y))), bbox: { x0: 0, y0: 0, x1: w, y1: h, w, h } };
+    const api = makeApi(fake, room, DP.makeRng('kit/' + ck), new Set());
+    if (type !== 'lift' && type !== 'corridor') (R[type] || TINT_FALLBACK[(DP.ROOMS[type] || {}).tint] || R.hold)(api);
+    const v = { props: fake.props, decor: fake.decor, w, h, style, type, variant };
+    KIT_CACHE.set(ck, v);
+    return v;
+  };
+  const TURN = { N: 'E', E: 'S', S: 'W', W: 'N' };
+  function kitPlace(sec, room, occ) {
+    const v = DP.kitVariant(room.part.style, room.part.w, room.part.h, room.part.variant);
+    const b = room.bbox, ch = room.part.h, turned = room.part.rot === 90;
+    for (const p of v.props) {
+      const q = turned ? { x: b.x0 + (ch - p.y - p.h), y: b.y0 + p.x, w: p.h, h: p.w, rot: (p.rot + 90) % 360 } : { x: b.x0 + p.x, y: b.y0 + p.y, w: p.w, h: p.h, rot: p.rot };
+      const np = Object.assign({}, p, q, { room: room.id });
+      // a door forced off its slots, or a ladder, takes the square; the piece's prop there is left off the map
+      let blocked = false;
+      for (let yy = np.y; yy < np.y + np.h; yy++) for (let xx = np.x; xx < np.x + np.w; xx++) if (sec.reserved.has(K(xx, yy)) || occ.has(K(xx, yy))) blocked = true;
+      if (blocked) { room.displaced = (room.displaced || 0) + 1; continue; }
+      for (let yy = np.y; yy < np.y + np.h; yy++) for (let xx = np.x; xx < np.x + np.w; xx++) occ.add(K(xx, yy));
+      sec.props.push(np);
+    }
+    for (const d of v.decor) {
+      const nd = Object.assign({}, d, { room: room.id });
+      if (!turned) { nd.x = b.x0 + d.x; nd.y = b.y0 + d.y; if (d.x2 != null) { nd.x2 = b.x0 + d.x2; nd.y2 = b.y0 + d.y2; } }
+      else if (d.t === 'pipe') { nd.x = b.x0 + (ch - 1 - d.y); nd.y = b.y0 + d.x; nd.x2 = b.x0 + (ch - 1 - d.y2); nd.y2 = b.y0 + d.x2; nd.side = TURN[d.side]; if (nd.y > nd.y2) [nd.y, nd.y2] = [nd.y2, nd.y]; if (nd.x > nd.x2) [nd.x, nd.x2] = [nd.x2, nd.x]; }
+      else { nd.x = b.x0 + (ch - d.y); nd.y = b.y0 + d.x; nd.a = (d.a || 0) + 90; if (d.side) nd.side = TURN[d.side]; }
+      sec.decor.push(nd);
+    }
+  }
+
   DP.furnishSector = function (ship, sec, rng) {
     const occ = new Set(); sec.occ = occ;
+    // ladders first, on their pinned squares, before anything else can take the space. A ladder is a floor hatch
+    // with rungs: it can share a square with a junction opening, so a reserved square does not stop it.
+    for (const L of sec.ladders) {
+      const k = K(L.x, L.y); const id = sec.owner[L.y] ? sec.owner[L.y][L.x] : -1;
+      if (id < 0 || sec.cuts.has(k) || sec.rooms[id].kind === 'structure') continue;
+      const room = sec.rooms[id];
+      const twin = sec.props.find(p => p.t === 'ladder' && p.x === L.x && p.y === L.y);
+      if (twin) { if (twin.dir !== L.dir) twin.dir = 'both'; }   // one well, rungs up and down
+      else { occ.add(k); sec.props.push({ t: 'ladder', x: L.x, y: L.y, w: 1, h: 1, rot: 0, room: room.id, dir: L.dir }); }
+      room.ladders = room.ladders || []; room.ladders.push(L.dir); L.px = L.x; L.py = L.y; L.placed = true;
+    }
     for (const room of sec.rooms) {
-      if (!room.cells.length) continue;
+      if (!room.cells.length || room.kind === 'structure') continue;
       const api = makeApi(sec, room, rng.fork('r' + room.id), occ);
       if (room.kind === 'corridor') furnishCorridor(sec, room, rng, occ, api);
+      else if (room.part) kitPlace(sec, room, occ);
       else { const fn = R[room.type] || TINT_FALLBACK[(DP.ROOMS[room.type] || {}).tint] || R.hold; fn(api); }
       // wear and tear
       const wear = ship.condition === 'derelict' ? 2 : ship.condition === 'rundown' ? 1 : 0;
@@ -204,8 +264,9 @@
       const ox = sec.l * sec.W, oy = sec.f * sec.H;
       for (let y = 0; y < sec.H; y++) for (let x = 0; x < sec.W; x++) if (DP.hullKind(ship, sec.d, ox + x, oy + y) === 2 && rng.chance(0.08)) sec.decor.push({ t: rng.chance(0.7) ? 'rubble' : 'girder', x: x + rng.next(), y: y + rng.next(), r: 0.5 + rng.next() * 0.8, a: rng.next() * 360, room: -1 });
     }
-    // ladders between decks go wherever they land, nudged to the nearest square that can take one
+    // a ladder whose square was taken after all (a repair ladder on a door square) is nudged to the nearest free square
     for (const L of sec.ladders) {
+      if (L.placed) continue;
       const cands = [...sec.hull].map(unK).filter(([x, y]) => { const k = K(x, y); return !occ.has(k) && !sec.reserved.has(k) && !sec.cuts.has(k) && sec.owner[y][x] >= 0; })
         .map(([x, y]) => [x, y, Math.abs(x - L.x) + Math.abs(y - L.y)]).filter(c => c[2] <= 8).sort((a, b) => a[2] - b[2]);
       const apis = new Map();

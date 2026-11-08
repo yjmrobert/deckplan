@@ -4,33 +4,64 @@
 
   // Ship classes: the whole vessel is a grid of sectors, frames long (prow first) by laterals wide, decks deep.
   DP.CLASSES = {
-    W: { name: 'Battlecruiser',  frames: 10, laterals: 3, decks: 7, zoneW: { command: 1.2, habitation: 1, enginarium: 1.2, cargo: 0.5, armoury: 2.2, medicae: 0.7, sanctum: 0.8, science: 0.3, maintenance: 1, brig: 0.5, hangar: 1 } },
+    W: { name: 'Battlecruiser',  frames: 10, laterals: 3, decks: 7, zoneW: { command: 1.2, habitation: 1, enginarium: 1.4, cargo: 0.8, armoury: 2.2, medicae: 0.7, sanctum: 0.8, science: 0.3, maintenance: 1.2, brig: 0.5, hangar: 1 } },
     T: { name: 'Bulk freighter', frames: 8,  laterals: 3, decks: 4, zoneW: { command: 0.6, habitation: 0.8, enginarium: 1.2, cargo: 3, armoury: 0.2, medicae: 0.4, sanctum: 0.3, science: 0.2, maintenance: 1.2, brig: 0.2, hangar: 0.8 } },
-    L: { name: 'Pilgrim liner',  frames: 8,  laterals: 3, decks: 6, zoneW: { command: 0.7, habitation: 3, enginarium: 0.8, cargo: 0.7, armoury: 0.2, medicae: 1, sanctum: 1.8, science: 0.2, maintenance: 0.8, brig: 0.3, hangar: 0.4 } },
-    R: { name: 'Survey vessel',  frames: 6,  laterals: 3, decks: 4, zoneW: { command: 1, habitation: 1, enginarium: 1, cargo: 0.8, armoury: 0.4, medicae: 1, sanctum: 0.3, science: 2.5, maintenance: 1, brig: 0.2, hangar: 0.8 } },
-    P: { name: 'Prison barge',   frames: 6,  laterals: 3, decks: 5, zoneW: { command: 0.8, habitation: 1, enginarium: 0.8, cargo: 0.6, armoury: 1.2, medicae: 0.8, sanctum: 0.5, science: 0.2, maintenance: 1, brig: 3, hangar: 0.3 } },
+    L: { name: 'Pilgrim liner',  frames: 8,  laterals: 3, decks: 6, zoneW: { command: 0.7, habitation: 3, enginarium: 1, cargo: 0.9, armoury: 0.2, medicae: 1, sanctum: 1.8, science: 0.2, maintenance: 1, brig: 0.3, hangar: 0.4 } },
+    R: { name: 'Survey vessel',  frames: 6,  laterals: 3, decks: 4, zoneW: { command: 1, habitation: 1, enginarium: 1.2, cargo: 1, armoury: 0.4, medicae: 1, sanctum: 0.3, science: 2.5, maintenance: 1.2, brig: 0.2, hangar: 0.8 } },
+    P: { name: 'Prison barge',   frames: 6,  laterals: 3, decks: 5, zoneW: { command: 0.8, habitation: 1, enginarium: 1, cargo: 0.8, armoury: 1.2, medicae: 0.8, sanctum: 0.5, science: 0.2, maintenance: 1.2, brig: 3, hangar: 0.3 } },
     K: { name: 'Space hulk',     frames: 9,  laterals: 3, decks: 6, forceCondition: 'derelict', zoneW: { command: 0.8, habitation: 1, enginarium: 1, cargo: 1.2, armoury: 0.8, medicae: 0.6, sanctum: 0.8, science: 0.6, maintenance: 1.2, brig: 0.4, hangar: 0.6, void: 1.5 } },
+    // the small end: one column of sectors, a few decks, so a whole ship prints in a sitting or two
+    C: { name: 'Cutter',         frames: 3,  laterals: 1, decks: 2, zoneW: { command: 1, habitation: 1, enginarium: 1.6, cargo: 1.3, armoury: 0.5, medicae: 0.5, sanctum: 0.2, science: 0.5, maintenance: 1.3, brig: 0.2, hangar: 0.6 } },
+    G: { name: 'Corvette',       frames: 4,  laterals: 1, decks: 3, zoneW: { command: 1.2, habitation: 1, enginarium: 1.5, cargo: 0.5, armoury: 2, medicae: 0.5, sanctum: 0.3, science: 0.3, maintenance: 1, brig: 0.3, hangar: 0.3 } },
+    M: { name: 'Mining tender',  frames: 6,  laterals: 1, decks: 3, zoneW: { command: 0.6, habitation: 1, enginarium: 1.5, cargo: 1.8, armoury: 0.2, medicae: 0.5, sanctum: 0.2, science: 0.5, maintenance: 2, brig: 0.2, hangar: 0.8 } },
+    F: { name: 'Free trader',    frames: 5,  laterals: 1, decks: 4, zoneW: { command: 0.8, habitation: 1.2, enginarium: 1.2, cargo: 2.5, armoury: 0.3, medicae: 0.4, sanctum: 0.3, science: 0.3, maintenance: 1.2, brig: 0.2, hangar: 0.5 } },
+    E: { name: 'Frigate',        frames: 5,  laterals: 3, decks: 3, zoneW: { command: 1.2, habitation: 1, enginarium: 1.3, cargo: 0.6, armoury: 1.8, medicae: 0.6, sanctum: 0.5, science: 0.4, maintenance: 1, brig: 0.4, hangar: 0.8 } },
   };
-  DP.CLASS_ORDER = ['W', 'T', 'L', 'R', 'P', 'K'];
+  // smallest first
+  DP.CLASS_ORDER = ['C', 'G', 'M', 'F', 'E', 'R', 'P', 'T', 'L', 'K', 'W'];
+  DP.classSectors = (k) => DP.CLASSES[k].frames * DP.CLASSES[k].laterals * DP.CLASSES[k].decks;
 
   // Sector sizes are whole letter pages at 1 inch: 7 x 10 squares per page.
-  DP.SECTOR_SIZES = { s: { name: 'Small (3×3 pages, 21×30)', w: 21, h: 30 }, m: { name: 'Medium (4×4 pages, 28×40)', w: 28, h: 40 }, l: { name: 'Large (5×5 pages, 35×50)', w: 35, h: 50 } };
+  DP.SECTOR_SIZES = { xs: { name: 'Tiny (2×2 pages, 14×20)', w: 14, h: 20 }, s: { name: 'Small (3×3 pages, 21×30)', w: 21, h: 30 }, m: { name: 'Medium (4×4 pages, 28×40)', w: 28, h: 40 }, l: { name: 'Large (5×5 pages, 35×50)', w: 35, h: 50 } };
 
   DP.CONDITIONS = { intact: 'Intact', rundown: 'Rundown', derelict: 'Derelict' };
+  DP.BUILDS = { organic: 'Organic (every room unique)', kit: 'Kit (standard parts)' };
+
+  // The kit: rooms come only in these footprints (short side first; a part may be laid either way round), corridors
+  // are straights of these lengths, and each footprint has a couple of fixed furnishing variants that never change
+  // between ships. Print a part once, use it on every ship.
+  // Parts are footprint × style: a style is a family of rooms that share one classic furnishing (every cargo
+  // room prints as the Cargo part of its size; the key says which one is the hold and which the cold store).
+  DP.KIT = {
+    footprints: [[3, 3], [3, 5], [4, 4], [4, 6], [5, 5], [5, 7], [7, 7], [7, 10], [7, 14], [10, 14]],
+    corridorLengths: [5, 3, 2, 1],
+    variants: ['A', 'B'], variantFrom: 35,   // a second variant only for parts of this many squares or more
+    bigZones: ['cargo', 'hangar', 'enginarium', 'maintenance', 'armoury'],
+    // style by floor tint: the recipe for a small part and for a hall (36 squares and up)
+    styles: {
+      command: { name: 'Command', small: 'office', hall: 'bridge' }, living: { name: 'Quarters', small: 'cabin', hall: 'barracks' },
+      mess: { name: 'Mess', small: 'galley', hall: 'mess' }, utility: { name: 'Utility', small: 'workshop', hall: 'machinehall' },
+      cargo: { name: 'Cargo', small: 'storage', hall: 'hold' }, engineering: { name: 'Engineering', small: 'generator', hall: 'reactor' },
+      medical: { name: 'Medical', small: 'medbay', hall: 'ward' }, science: { name: 'Science', small: 'lab', hall: 'hydro' },
+      military: { name: 'Military', small: 'armory', hall: 'weapons' }, sacred: { name: 'Sacred', small: 'shrine', hall: 'nave' },
+      airlock: { name: 'Airlock', small: 'airlock', hall: 'airlock' }, alien: { name: 'Nest', small: 'nest', hall: 'nest' },
+      void: { name: 'Wreck', small: 'void', hall: 'void' }, corridor: { name: 'Corridor', small: 'corridor', hall: 'corridor' },
+    },
+  };
 
   // Zones: a sector is three to six of these. Pools are [type, weight, size] with size small|mid|hall|any.
   DP.ZONES = {
     command:     { name: 'Command deck',       tint: 'command',     pool: [['bridge', 3, 'hall'], ['firecon', 2, 'mid'], ['comms', 2, 'mid'], ['maproom', 2, 'mid'], ['office', 3, 'small'], ['ready', 2, 'mid'], ['archive', 2, 'mid'], ['wash', 2, 'small'], ['storage', 2, 'small'], ['cabin', 2, 'small'], ['lounge', 1, 'mid'], ['security', 1, 'mid']] },
     habitation:  { name: 'Habitation block',   tint: 'living',      pool: [['cabins', 4, 'mid'], ['barracks', 2, 'hall'], ['cabin', 3, 'small'], ['galley', 2, 'mid'], ['mess', 3, 'hall'], ['wash', 3, 'small'], ['lounge', 2, 'mid'], ['commons', 2, 'hall'], ['laundry', 1, 'small'], ['stateroom', 2, 'mid'], ['gym', 1, 'mid'], ['storage', 1, 'small'], ['shrine', 1, 'small'], ['infirmary', 1, 'mid']] },
-    enginarium:  { name: 'Enginarium',         tint: 'engineering', pool: [['engines', 3, 'hall'], ['reactor', 2, 'hall'], ['workshop', 3, 'mid'], ['life', 2, 'mid'], ['pump', 2, 'mid'], ['coolant', 2, 'mid'], ['generator', 2, 'mid'], ['storage', 2, 'small'], ['tools', 2, 'small'], ['wash', 1, 'small'], ['control', 2, 'mid'], ['furnace', 1, 'hall']] },
-    cargo:       { name: 'Cargo decks',        tint: 'cargo',       pool: [['hold', 5, 'hall'], ['storage', 3, 'mid'], ['cold', 2, 'mid'], ['customs', 1, 'mid'], ['loading', 2, 'hall'], ['tanks', 2, 'mid'], ['office', 1, 'small'], ['locker', 1, 'small'], ['crane', 1, 'hall'], ['wash', 1, 'small']] },
+    enginarium:  { name: 'Enginarium',         tint: 'engineering', pool: [['engines', 3, 'hall'], ['reactor', 3, 'hall'], ['machinehall', 2, 'hall'], ['fuelbay', 2, 'hall'], ['workshop', 3, 'mid'], ['life', 2, 'mid'], ['pump', 2, 'mid'], ['coolant', 2, 'mid'], ['generator', 3, 'mid'], ['conduit', 2, 'mid'], ['capacitor', 2, 'mid'], ['storage', 3, 'small'], ['tools', 2, 'small'], ['wash', 1, 'small'], ['control', 2, 'mid'], ['furnace', 1, 'hall']] },
+    cargo:       { name: 'Cargo decks',        tint: 'cargo',       pool: [['hold', 5, 'hall'], ['bulkstore', 3, 'hall'], ['storage', 4, 'mid'], ['cold', 2, 'mid'], ['customs', 1, 'mid'], ['loading', 2, 'hall'], ['tanks', 2, 'mid'], ['fuelbay', 1, 'hall'], ['office', 1, 'small'], ['locker', 1, 'small'], ['crane', 1, 'hall'], ['wash', 1, 'small']] },
     medicae:     { name: 'Medicae ward',       tint: 'medical',     pool: [['ward', 3, 'hall'], ['medbay', 3, 'mid'], ['surgery', 2, 'mid'], ['morgue', 2, 'mid'], ['pharmacy', 2, 'small'], ['lab', 2, 'mid'], ['wash', 2, 'small'], ['office', 1, 'small'], ['quarantine', 1, 'mid'], ['storage', 1, 'small']] },
     armoury:     { name: 'Armoury',            tint: 'military',    pool: [['armory', 3, 'mid'], ['magazine', 3, 'mid'], ['range', 2, 'hall'], ['barracks', 2, 'hall'], ['weapons', 3, 'hall'], ['brig', 1, 'mid'], ['guard', 2, 'small'], ['wash', 1, 'small'], ['storage', 1, 'small'], ['firecon', 1, 'mid'], ['drill', 1, 'hall']] },
     sanctum:     { name: 'Sanctum',            tint: 'sacred',      pool: [['nave', 3, 'hall'], ['shrine', 3, 'small'], ['reliquary', 2, 'mid'], ['scriptorium', 2, 'mid'], ['cell', 3, 'small'], ['archive', 2, 'mid'], ['confessional', 1, 'small'], ['refectory', 2, 'hall'], ['crypt', 1, 'hall'], ['wash', 1, 'small']] },
     science:     { name: 'Laboratorium',       tint: 'science',     pool: [['lab', 4, 'mid'], ['contain', 2, 'mid'], ['specimen', 2, 'mid'], ['hydro', 2, 'hall'], ['sensor', 2, 'mid'], ['cold', 1, 'small'], ['archive', 1, 'mid'], ['clean', 1, 'mid'], ['wash', 1, 'small'], ['office', 1, 'small'], ['menagerie', 1, 'hall']] },
-    maintenance: { name: 'Maintenance decks',  tint: 'utility',     pool: [['workshop', 3, 'mid'], ['pump', 2, 'mid'], ['vents', 2, 'mid'], ['storage', 3, 'small'], ['generator', 2, 'mid'], ['sump', 2, 'hall'], ['tools', 2, 'small'], ['tanks', 2, 'mid'], ['locker', 1, 'small'], ['crew', 1, 'mid'], ['scrap', 1, 'hall']] },
+    maintenance: { name: 'Maintenance decks',  tint: 'utility',     pool: [['workshop', 3, 'mid'], ['pump', 2, 'mid'], ['vents', 2, 'mid'], ['storage', 4, 'small'], ['generator', 2, 'mid'], ['machinehall', 1, 'hall'], ['sump', 2, 'hall'], ['tools', 2, 'small'], ['tanks', 2, 'mid'], ['conduit', 1, 'mid'], ['locker', 1, 'small'], ['crew', 1, 'mid'], ['scrap', 1, 'hall']] },
     brig:        { name: 'Detention block',    tint: 'military',    pool: [['cells', 4, 'hall'], ['cell', 3, 'small'], ['guard', 3, 'small'], ['interview', 2, 'mid'], ['armory', 1, 'mid'], ['wash', 2, 'small'], ['morgue', 1, 'mid'], ['office', 1, 'small'], ['yard', 1, 'hall'], ['security', 2, 'mid']] },
-    hangar:      { name: 'Hangar bay',         tint: 'cargo',       pool: [['hangar', 4, 'hall'], ['workshop', 2, 'mid'], ['fuel', 2, 'mid'], ['ready', 2, 'mid'], ['storage', 2, 'small'], ['locker', 2, 'small'], ['control', 1, 'mid'], ['magazine', 1, 'mid'], ['wash', 1, 'small']] },
+    hangar:      { name: 'Hangar bay',         tint: 'cargo',       pool: [['hangar', 4, 'hall'], ['shipbay', 3, 'hall'], ['fuelbay', 1, 'hall'], ['workshop', 2, 'mid'], ['fuel', 2, 'mid'], ['ready', 2, 'mid'], ['storage', 2, 'small'], ['locker', 2, 'small'], ['control', 1, 'mid'], ['magazine', 1, 'mid'], ['wash', 1, 'small']] },
     void:        { name: 'Breached section',   tint: 'void',        pool: [['void', 4, 'any'], ['nest', 2, 'mid'], ['scrap', 2, 'hall'], ['storage', 1, 'small'], ['hold', 1, 'hall'], ['cabins', 1, 'mid']] },
   };
 
@@ -46,13 +77,15 @@
     pump: { name: 'Pump Room', tint: 'utility' }, coolant: { name: 'Coolant Plant', tint: 'engineering' }, generator: { name: 'Generatorium', tint: 'engineering' }, tools: { name: 'Tool Crib', tint: 'utility' }, furnace: { name: 'Furnace Hall', tint: 'engineering' },
     vents: { name: 'Vent Plant', tint: 'utility' }, sump: { name: 'Sump', tint: 'utility' }, tanks: { name: 'Tank Room', tint: 'utility' }, scrap: { name: 'Scrap Heap', tint: 'void' },
     hold: { name: 'Cargo Hold', tint: 'cargo' }, storage: { name: 'Storage', tint: 'cargo' }, cold: { name: 'Cold Store', tint: 'cargo' }, customs: { name: 'Customs Office', tint: 'command' }, loading: { name: 'Loading Bay', tint: 'cargo' }, locker: { name: 'Locker Room', tint: 'cargo' }, crane: { name: 'Crane Bay', tint: 'cargo' },
-    hangar: { name: 'Hangar', tint: 'cargo' }, fuel: { name: 'Fuel Store', tint: 'engineering' },
+    hangar: { name: 'Hangar', tint: 'cargo' }, fuel: { name: 'Fuel Store', tint: 'engineering' }, shipbay: { name: 'Ship Bay', tint: 'cargo' },
+    fuelbay: { name: 'Fuel Bay', tint: 'engineering' }, bulkstore: { name: 'Bulk Store', tint: 'cargo' }, machinehall: { name: 'Machine Hall', tint: 'engineering' }, conduit: { name: 'Plasma Conduit', tint: 'engineering' }, capacitor: { name: 'Capacitor Bank', tint: 'engineering' },
     ward: { name: 'Ward', tint: 'medical' }, medbay: { name: 'Medbay', tint: 'medical' }, surgery: { name: 'Surgery', tint: 'medical' }, morgue: { name: 'Morgue', tint: 'medical' }, pharmacy: { name: 'Pharmacy', tint: 'medical' }, quarantine: { name: 'Quarantine', tint: 'medical' },
     lab: { name: 'Laboratory', tint: 'science' }, contain: { name: 'Containment', tint: 'science' }, specimen: { name: 'Specimen Store', tint: 'science' }, hydro: { name: 'Hydroponics', tint: 'science' }, sensor: { name: 'Auspex Bay', tint: 'science' }, clean: { name: 'Clean Room', tint: 'science' }, menagerie: { name: 'Menagerie', tint: 'science' },
     armory: { name: 'Armoury', tint: 'military' }, magazine: { name: 'Magazine', tint: 'military' }, range: { name: 'Firing Range', tint: 'military' }, weapons: { name: 'Gun Deck', tint: 'military' }, brig: { name: 'Brig', tint: 'military' }, guard: { name: 'Guard Post', tint: 'military' }, drill: { name: 'Drill Hall', tint: 'military' },
     cells: { name: 'Cell Block', tint: 'military' }, cell: { name: 'Cell', tint: 'military' }, interview: { name: 'Interrogation', tint: 'military' }, yard: { name: 'Exercise Yard', tint: 'military' },
     nave: { name: 'Nave', tint: 'sacred' }, shrine: { name: 'Shrine', tint: 'sacred' }, reliquary: { name: 'Reliquary', tint: 'sacred' }, scriptorium: { name: 'Scriptorium', tint: 'sacred' }, confessional: { name: 'Confessional', tint: 'sacred' }, crypt: { name: 'Crypt', tint: 'sacred' },
     airlock: { name: 'Airlock', tint: 'airlock' }, nest: { name: 'Nest', tint: 'alien' }, void: { name: 'Collapsed Section', tint: 'void' },
+    structure: { name: 'Structure', tint: 'corridor' },
   };
 
   // Floor tints for the colour renderer, by theme.

@@ -2,13 +2,14 @@ name: pages
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
   pages: write
   id-token: write
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   build:
@@ -19,7 +20,12 @@ jobs:
         with:
           node-version: 22
       - name: smoke test
-        run: node test/smoke.js > /dev/null
+        # thousands of sectors in both builds; the last lines carry the failures and the totals
+        run: node test/smoke.js | tail -60
+      - name: render check
+        run: |
+          node test/render.js ALPHA1 W m intact 2 3 1 color fleet out/demo
+          BUILD=kit LAYOUT=kit SCOPE=deck node test/render.js ALPHA1 C xs intact 1 1 0 plan fleet out/kit
       - name: assemble the site
         # the app is static: the page, its styles and scripts, nothing else
         run: |
@@ -27,12 +33,15 @@ jobs:
           cp -r index.html css js README.md site/
           touch site/.nojekyll
       - uses: actions/configure-pages@v5
+        if: github.event_name != 'pull_request'
         with:
           enablement: true
       - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
         with:
           path: site
   deploy:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     environment:

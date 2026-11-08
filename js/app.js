@@ -2,15 +2,15 @@
 (function () {
   const DP = globalThis.DP;
   const $ = (id) => document.getElementById(id);
-  const DEFAULTS = { s: '', c: 'W', z: 'm', k: 'intact', d: 1, f: 1, l: 1, m: 'color', t: 'fleet', n: 'numbers' };
+  const DEFAULTS = { s: '', c: 'W', z: 'm', k: 'intact', b: 'organic', d: 1, f: 1, l: 1, m: 'color', t: 'fleet', n: 'numbers', v: 0 };
   let state = Object.assign({}, DEFAULTS);
-  let ship = null, sec = null, cache = new Map();
+  let ship = null, sec = null, ships = new Map();   // ships by key; each ship caches its own sectors
 
   function readHash() {
     const h = location.hash.replace(/^#/, '');
     const q = new URLSearchParams(h);
     for (const k of Object.keys(DEFAULTS)) if (q.has(k)) state[k] = q.get(k);
-    ['d', 'f', 'l'].forEach(k => state[k] = parseInt(state[k], 10) || 0);
+    ['d', 'f', 'l', 'v'].forEach(k => state[k] = parseInt(state[k], 10) || 0);
     if (!state.s) state.s = DP.newSeed();
   }
   function writeHash() {
@@ -19,17 +19,17 @@
     history.replaceState(null, '', '#' + q.toString());
     $('code').textContent = q.toString();
   }
-  function shipKey() { return `${state.s}|${state.c}|${state.z}|${state.k}`; }
+  function shipKey() { return `${state.s}|${state.c}|${state.z}|${state.k}|${state.b}`; }
   function visited() { try { return JSON.parse(localStorage.getItem('deckplan:visited:' + shipKey()) || '[]'); } catch (e) { return []; } }
   function markVisited() { try { const v = new Set(visited()); v.add(`${state.d},${state.f},${state.l}`); localStorage.setItem('deckplan:visited:' + shipKey(), JSON.stringify([...v])); } catch (e) { } }
 
   function rebuild() {
-    ship = DP.makeShip({ seed: state.s, cls: state.c, size: state.z, condition: state.k });
-    state.k = ship.condition; state.c = ship.cls;
+    const fresh = DP.makeShip({ seed: state.s, cls: state.c, size: state.z, condition: state.k, build: state.b });
+    state.k = fresh.condition; state.c = fresh.cls; state.b = fresh.build;
+    if (!ships.has(shipKey())) { if (ships.size > 6) ships.clear(); ships.set(shipKey(), fresh); }
+    ship = ships.get(shipKey());
     if (!DP.sectorLive(ship, state.d, state.f, state.l)) { let found = false; for (let d = 1; d < ship.D && !found; d++) for (let f = 1; f < ship.F && !found; f++) for (let l = 0; l < ship.Lat && !found; l++) if (DP.sectorLive(ship, d, f, l)) { state.d = d; state.f = f; state.l = l; found = true; } }
-    const key = shipKey() + `|${state.d},${state.f},${state.l}`;
-    if (!cache.has(key)) { if (cache.size > 40) cache.clear(); cache.set(key, DP.buildSector(ship, state.d, state.f, state.l)); }
-    sec = cache.get(key);
+    sec = DP.sectorAt(ship, state.d, state.f, state.l);
     markVisited();
     writeHash();
     renderAll();
@@ -39,11 +39,12 @@
     return Object.assign({ mode: state.m, theme: state.t, labels: state.n, background: 'space', zones: $('zones').checked, pages: $('pagegrid').checked ? DP.pageTiles(sec, +$('pscale').value).pages : null }, extra || {});
   }
   function renderAll() {
-    $('seed').value = state.s; $('cls').value = state.c; $('size').value = state.z; $('condition').value = state.k; $('mode').value = state.m; $('theme').value = state.t; $('labels').value = state.n;
+    $('seed').value = state.s; $('cls').value = state.c; $('size').value = state.z; $('condition').value = state.k; $('build').value = state.b; $('mode').value = state.m; $('theme').value = state.t; $('labels').value = state.n;
     $('condition').disabled = !!ship.C.forceCondition;
     const zoom = +$('zoom').value;
-    $('map').innerHTML = DP.renderSector(ship, sec, renderOpts({ widthAttr: (sec.W + 1) * zoom + 'px', heightAttr: (sec.H + 1) * zoom + 'px' }));
-    $('seclabel').textContent = sec.label;
+    $('map').innerHTML = (state.v ? DP.renderVents : DP.renderSector)(ship, sec, renderOpts({ widthAttr: (sec.W + 1) * zoom + 'px', heightAttr: (sec.H + 1) * zoom + 'px' }));
+    $('layer-deck').className = state.v ? '' : 'current'; $('layer-vents').className = state.v ? 'current' : '';
+    $('seclabel').textContent = sec.label + (state.v ? ' vents' : '');
     $('secmeta').textContent = `· ${ship.className} · deck ${sec.d + 1} of ${ship.D} · ${sec.zones.map(z => z.name).join(', ')}`;
     $('keypanel').innerHTML = DP.keyHTML(ship, sec, {});
     renderOverview();
@@ -75,7 +76,7 @@
 
   // ---- export -----------------------------------------------------------------
   function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
-  function fullSVG() { return DP.renderSector(ship, sec, renderOpts({ widthAttr: (sec.W + 1) * 100 + 'px', heightAttr: (sec.H + 1) * 100 + 'px', pages: null })); }
+  function fullSVG() { return (state.v ? DP.renderVents : DP.renderSector)(ship, sec, renderOpts({ widthAttr: (sec.W + 1) * 100 + 'px', heightAttr: (sec.H + 1) * 100 + 'px', pages: null })); }
   function exportPNG() {
     const svg = fullSVG();
     const img = new Image();
@@ -84,7 +85,7 @@
   }
   function exportSVG() { download(`deckplan-${state.s}-${sec.label}.svg`, new Blob([fullSVG()], { type: 'image/svg+xml' })); }
   function doPrint() {
-    const o = { layout: $('playout').value, scale: +$('pscale').value, mode: state.m, theme: state.t, labels: state.n, background: $('pbg').value, key: $('pkey').checked };
+    const o = { layout: $('playout').value, scope: $('kscope').value, scale: +$('pscale').value, mode: state.m, theme: state.t, labels: state.n, background: $('pbg').value, key: $('pkey').checked };
     $('print-root').innerHTML = DP.buildPrint(ship, sec, o);
     setTimeout(() => window.print(), 50);
   }
@@ -92,20 +93,23 @@
   // ---- wiring -------------------------------------------------------------------
   function fill(sel, entries) { const el = $(sel); el.innerHTML = ''; for (const [v, t] of entries) { const o = document.createElement('option'); o.value = v; o.textContent = t; el.appendChild(o); } }
   function init() {
-    fill('cls', DP.CLASS_ORDER.map(k => [k, DP.CLASSES[k].name]));
+    fill('cls', DP.CLASS_ORDER.map(k => [k, `${DP.CLASSES[k].name} · ${DP.CLASSES[k].frames}×${DP.CLASSES[k].laterals}×${DP.CLASSES[k].decks}, ${DP.classSectors(k)} sectors`]));
     fill('size', Object.entries(DP.SECTOR_SIZES).map(([k, v]) => [k, v.name]));
     fill('condition', Object.entries(DP.CONDITIONS));
+    fill('build', Object.entries(DP.BUILDS));
     fill('theme', DP.THEME_ORDER.map(k => [k, DP.THEMES[k].name]));
     fill('pscale', Object.entries(DP.SCALES));
     readHash();
     const bind = (id, key, fn) => $(id).addEventListener('change', () => { state[key] = $(id).value; (fn || rebuild)(); });
-    bind('cls', 'c'); bind('size', 'z'); bind('condition', 'k'); bind('mode', 'm', renderAll); bind('theme', 't', renderAll); bind('labels', 'n', renderAll);
+    bind('cls', 'c'); bind('size', 'z'); bind('condition', 'k'); bind('build', 'b'); bind('mode', 'm', renderAll); bind('theme', 't', renderAll); bind('labels', 'n', renderAll);
     $('seed').addEventListener('change', () => { state.s = $('seed').value.trim().toUpperCase() || DP.newSeed(); rebuild(); });
     $('newseed').onclick = () => { state.s = DP.newSeed(); rebuild(); };
     $('randomship').onclick = () => { state.s = DP.newSeed(); const r = DP.makeRng(state.s); state.c = r.pick(DP.CLASS_ORDER); state.k = r.weighted([['intact', 3], ['rundown', 3], ['derelict', 2]]); state.d = 1; state.f = 1; state.l = 1; rebuild(); };
     ['zones', 'pagegrid'].forEach(id => $(id).addEventListener('change', renderAll));
     $('pscale').addEventListener('change', renderAll);
     $('zoom').addEventListener('input', renderAll);
+    $('layer-deck').onclick = () => { state.v = 0; writeHash(); renderAll(); };
+    $('layer-vents').onclick = () => { state.v = 1; writeHash(); renderAll(); };
     $('prevdeck').onclick = () => go(state.d - 1, state.f, state.l);
     $('nextdeck').onclick = () => go(state.d + 1, state.f, state.l);
     $('print').onclick = doPrint; $('png').onclick = exportPNG; $('svg').onclick = exportSVG;

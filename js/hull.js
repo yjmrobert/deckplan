@@ -12,6 +12,11 @@
     R: { lens: 0.35, nose: 0.18, twoStage: 0.4, neck: 0.25, waist: 0.3, aftIn: 0.3,  engine: [8, 14],  prowSetback: 0.6 },
     P: { lens: 0.22, nose: 0.45, twoStage: 0.1, neck: 0.1,  waist: 0.1, aftIn: 0.12, engine: [10, 16], prowSetback: 0.3 },
     K: { lens: 0.3,  nose: 0.2,  twoStage: 0.5, neck: 0.2,  waist: 0.5, aftIn: 0.2,  engine: [8, 20],  prowSetback: 0.5 },
+    C: { lens: 0.25, nose: 0.35, twoStage: 0,   neck: 0,    waist: 0,   aftIn: 0.2,  engine: [5, 9],   prowSetback: 0.4 },
+    G: { lens: 0.3,  nose: 0.25, twoStage: 0.3, neck: 0.15, waist: 0.2, aftIn: 0.25, engine: [6, 10],  prowSetback: 0.5 },
+    M: { lens: 0.15, nose: 0.5,  twoStage: 0,   neck: 0,    waist: 0.5, aftIn: 0.1,  engine: [8, 12],  prowSetback: 0.2 },
+    F: { lens: 0.2,  nose: 0.4,  twoStage: 0,   neck: 0,    waist: 0.1, aftIn: 0.15, engine: [6, 10],  prowSetback: 0.3 },
+    E: { lens: 0.35, nose: 0.15, twoStage: 0.6, neck: 0.2,  waist: 0.3, aftIn: 0.3,  engine: [8, 14],  prowSetback: 0.6 },
   };
 
   function profile(ship, d, side, params, rng) {
@@ -128,6 +133,12 @@
     ship._hullCache.set(key, out);
     return out;
   };
+  // is this square standing floor: hull, on an island that survived the walkability proof
+  DP.liveAt = function (ship, d, f, l, x, y) {
+    if (!DP.sectorExists(ship, d, f, l)) return false;
+    const sh = DP.sectorHull(ship, d, f, l); const i = sh.islandOf.get(x + ',' + y);
+    return i != null && !DP.shipConnections(ship).dead.has(d + '/' + f + '/' + l + '#' + i);
+  };
   // a sector with floor left in it once dead islands are removed
   DP.sectorLive = function (ship, d, f, l) {
     if (!DP.sectorExists(ship, d, f, l)) return false;
@@ -211,12 +222,23 @@
       }
       if (best) conn.lifts.set(f + '/' + l, best);
     }
-    // ladders between neighbouring decks, hashed per pair, kept only where both decks have floor there
+    // ladders between neighbouring decks, hashed per pair. They stand in the thoroughfare, which runs at the same
+    // squares on every deck of a column, so the two ends always line up; the squares are pinned in the sector build.
     for (let f = 0; f < ship.F; f++) for (let l = 0; l < ship.Lat; l++) for (let d = 0; d < ship.D - 1; d++) {
       if (!exists(d, f, l) || !exists(d + 1, f, l)) continue;
       const g = DP.makeRng(`${ship.seed}/ladder/${f}/${l}/${d}`);
+      const { bands, spineX, sw, crosses } = DP.sectorBands(ship, f, l);
+      const nearCross = (y) => crosses.some(cy => y >= cy - 1 && y <= cy + 2);
       const n = g.int(1, 2); let placed = 0;
-      for (let i = 0; i < 12 && placed < n; i++) { const x = g.int(2, W - 3), y = g.int(2, H - 3); if (crossRow(ship, f, y) || !hullAt(d, f, l, x, y) || !hullAt(d + 1, f, l, x, y)) continue; push(conn.ladders, key(d, f, l), { x, y, dir: 'down' }); push(conn.ladders, key(d + 1, f, l), { x, y, dir: 'up' }); placed++; }
+      for (let i = 0; i < 16 && placed < n; i++) {
+        const y = g.int(2, H - 3); if (nearCross(y)) continue;
+        const bi = bands.findIndex(([a, b]) => y >= a && y < b); if (bi < 0) continue;
+        const x = spineX(bi) + g.int(0, sw - 1);
+        if (!hullAt(d, f, l, x, y) || !hullAt(d + 1, f, l, x, y)) continue;
+        if (DP.sectorHull(ship, d, f, l).cuts.has(x + ',' + y) || DP.sectorHull(ship, d + 1, f, l).cuts.has(x + ',' + y)) continue;
+        if ((conn.ladders.get(key(d, f, l)) || []).some(L => Math.abs(L.y - y) < 3)) continue;
+        push(conn.ladders, key(d, f, l), { x, y, dir: 'down' }); push(conn.ladders, key(d + 1, f, l), { x, y, dir: 'up' }); placed++;
+      }
     }
     // ---- walkability over hull islands -------------------------------------------------------
     const nodes = new Map(); const nodeId = (d, f, l, i) => { const k = key(d, f, l) + '#' + i; if (!nodes.has(k)) nodes.set(k, nodes.size); return nodes.get(k); };
@@ -249,7 +271,8 @@
             if (done || dd < 0 || dd >= ship.D || !exists(dd, f, l)) continue;
             for (let c = 0; c < cells.length; c += 3) {
               const [x, y] = cells[c].split(',').map(Number);
-              if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || crossRow(ship, f, y) || sh.cuts.has(cells[c])) continue;
+              if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || crossRow(ship, f, y) || sh.cuts.has(cells[c]) || DP.sectorHull(ship, dd, f, l).cuts.has(cells[c])) continue;
+              if ((conn.ladders.get(key(d, f, l)) || []).concat(conn.ladders.get(key(dd, f, l)) || []).some(L => L.x === x && L.y === y)) continue;
               const j = islandAt(dd, f, l, x, y); if (j < 0) continue;
               const other = find(nodeId(dd, f, l, j)); if (other === me) continue;
               const lo = Math.min(d, dd), hi = Math.max(d, dd);
