@@ -107,6 +107,7 @@
       for (const r of sec.rooms) {
         if (!r.cells.length) continue;
         if (r.part) add(parts, sec, r.part.id, () => ({ name: r.part.name, style: r.part.style, w: r.part.w, h: r.part.h, variant: r.part.variant, kind: 'room' }), r.number ? r.number + ' ' + r.name : 'lift');
+        else if (r.kind === 'corridor' && r.repair) add(parts, sec, 'passage-odd', () => ({ name: 'Passage squares (repairs), cut to fit', style: 'corridor', w: 1, h: 1, variant: '', kind: 'odd' }), r.cells.length + ' squares');
         else if (r.kind === 'corridor') {
           // straights where the whole width is there, the ragged ends at the hull cut to fit
           const vertical = r.bbox.h >= r.bbox.w, width = Math.min(r.bbox.w, r.bbox.h), len = Math.max(r.bbox.w, r.bbox.h);
@@ -125,9 +126,8 @@
   // sectors in scope: this sector, every live sector of its deck, or the whole ship
   DP.kitScope = function (ship, sec, scope) {
     if (scope !== 'deck' && scope !== 'ship') return [sec];
-    ship._secCache = ship._secCache || new Map();
     const out = [];
-    for (let d = 0; d < ship.D; d++) { if (scope === 'deck' && d !== sec.d) continue; for (let f = 0; f < ship.F; f++) for (let l = 0; l < ship.Lat; l++) { if (!DP.sectorLive(ship, d, f, l)) continue; const k = d + '/' + f + '/' + l; if (!ship._secCache.has(k)) ship._secCache.set(k, DP.buildSector(ship, d, f, l)); out.push(ship._secCache.get(k)); } }
+    for (let d = 0; d < ship.D; d++) { if (scope === 'deck' && d !== sec.d) continue; for (let f = 0; f < ship.F; f++) for (let l = 0; l < ship.Lat; l++) if (DP.sectorLive(ship, d, f, l)) out.push(DP.sectorAt(ship, d, f, l)); }
     return out;
   };
   // a token: a strip of floor with a door across it, or a square with a grille or ladder on it
@@ -166,7 +166,7 @@
     for (const t of kit.tokens) { const tk = tokenSector(t); for (let i = 0; i < t.count; i++) tokens.push({ x: tk.clip.x, y: tk.clip.y, w: tk.w, h: tk.h, tag: '', draw: (clip, cut, o) => DP.renderSector(null, tk.sec, Object.assign({ mode: o.mode, theme: o.theme, labels: 'none', background: 'none', plain: true, clip: tk.clip, rooms: tk.rooms, grid: false }, sizeAttrs(tk.clip, o))) }); }
     const scopeLabel = kit.scope === 'ship' ? 'whole ship' : kit.scope === 'deck' ? 'deck ' + (sec.d + 1) : sec.label;
     const head = `${ship.className} ${ship.seed} · kit for ${scopeLabel}`;
-    return packSheets(pieces, o, head + ' · parts') + packSheets(tokens, o, head + ' · tokens', 'sheet-pieces sheet-tokens') + sheet(`<div class="key"><h2>${esc(head)}</h2>${DP.kitPartsHTML(kit, 'Parts list')}</div>`, head + ' · parts list', 'sheet-key');
+    return (pieces.length ? packSheets(pieces, o, head + ' · parts') : '') + (tokens.length ? packSheets(tokens, o, head + ' · tokens', 'sheet-pieces sheet-tokens') : '') + sheet(`<div class="key"><h2>${esc(head)}</h2>${DP.kitPartsHTML(kit, 'Parts list')}</div>`, head + ' · parts list', 'sheet-key');
   }
 
   DP.roomNotes = function (ship, sec, r) {

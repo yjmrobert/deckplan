@@ -235,6 +235,7 @@
         const bi = bands.findIndex(([a, b]) => y >= a && y < b); if (bi < 0) continue;
         const x = spineX(bi) + g.int(0, sw - 1);
         if (!hullAt(d, f, l, x, y) || !hullAt(d + 1, f, l, x, y)) continue;
+        if (DP.sectorHull(ship, d, f, l).cuts.has(x + ',' + y) || DP.sectorHull(ship, d + 1, f, l).cuts.has(x + ',' + y)) continue;
         if ((conn.ladders.get(key(d, f, l)) || []).some(L => Math.abs(L.y - y) < 3)) continue;
         push(conn.ladders, key(d, f, l), { x, y, dir: 'down' }); push(conn.ladders, key(d + 1, f, l), { x, y, dir: 'up' }); placed++;
       }

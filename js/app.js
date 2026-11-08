@@ -4,7 +4,7 @@
   const $ = (id) => document.getElementById(id);
   const DEFAULTS = { s: '', c: 'W', z: 'm', k: 'intact', b: 'organic', d: 1, f: 1, l: 1, m: 'color', t: 'fleet', n: 'numbers', v: 0 };
   let state = Object.assign({}, DEFAULTS);
-  let ship = null, sec = null, cache = new Map();
+  let ship = null, sec = null, ships = new Map();   // ships by key; each ship caches its own sectors
 
   function readHash() {
     const h = location.hash.replace(/^#/, '');
@@ -24,12 +24,12 @@
   function markVisited() { try { const v = new Set(visited()); v.add(`${state.d},${state.f},${state.l}`); localStorage.setItem('deckplan:visited:' + shipKey(), JSON.stringify([...v])); } catch (e) { } }
 
   function rebuild() {
-    ship = DP.makeShip({ seed: state.s, cls: state.c, size: state.z, condition: state.k, build: state.b });
-    state.k = ship.condition; state.c = ship.cls; state.b = ship.build;
+    const fresh = DP.makeShip({ seed: state.s, cls: state.c, size: state.z, condition: state.k, build: state.b });
+    state.k = fresh.condition; state.c = fresh.cls; state.b = fresh.build;
+    if (!ships.has(shipKey())) { if (ships.size > 6) ships.clear(); ships.set(shipKey(), fresh); }
+    ship = ships.get(shipKey());
     if (!DP.sectorLive(ship, state.d, state.f, state.l)) { let found = false; for (let d = 1; d < ship.D && !found; d++) for (let f = 1; f < ship.F && !found; f++) for (let l = 0; l < ship.Lat && !found; l++) if (DP.sectorLive(ship, d, f, l)) { state.d = d; state.f = f; state.l = l; found = true; } }
-    const key = shipKey() + `|${state.d},${state.f},${state.l}`;
-    if (!cache.has(key)) { if (cache.size > 40) cache.clear(); cache.set(key, DP.buildSector(ship, state.d, state.f, state.l)); }
-    sec = cache.get(key);
+    sec = DP.sectorAt(ship, state.d, state.f, state.l);
     markVisited();
     writeHash();
     renderAll();

@@ -59,7 +59,7 @@ for (const build of builds) for (const seed of seeds) for (const cls of classes)
     if (dead.length) { stats.deadRooms += dead.length; console.log('UNREACHABLE', build, seed, cls, size, cond, d, f, l, 'islands', islands.length, dead.map(r => r.name + '#' + r.id + '(' + r.cells.length + ')').join(', ')); fails++; }
     // props inside their rooms and not overlapping
     const occ = new Set();
-    const inDoor = (k) => sec.doors.some(dr => dr.kind !== 'join' && DP._layout.doorCells(dr).some(([x, y]) => x + ',' + y === k));
+    const inDoor = (k) => sec.doors.some(dr => dr.kind !== 'join' && DP._layout.doorCells(dr).some(([x, y]) => x + ',' + y === k)) && !(sec.rooms[sec.owner[+k.split(',')[1]][+k.split(',')[0]]] || {}).repair;
     for (const p of sec.props) for (let yy = p.y; yy < p.y + p.h; yy++) for (let xx = p.x; xx < p.x + p.w; xx++) { const k = xx + ',' + yy; if (occ.has(k)) { console.log('OVERLAP', seed, cls, d, f, l, p.t, xx, yy); fails++; } occ.add(k); if (sec.owner[yy][xx] !== p.room) { console.log('PROP OUTSIDE', seed, cls, d, f, l, p.t); fails++; } if (sec.reserved.has(k) && (p.t !== 'ladder' || inDoor(k))) { console.log('PROP ON DOOR', seed, cls, size, cond, d, f, l, p.t, k); fails++; } }
     stats.rooms += rooms.length; stats.doors += sec.doors.length; stats.props += sec.props.length; stats.sealed += sec.doors.filter(x => x.state === 'sealed').length;
     // exits match the neighbour (build the neighbour and compare)
@@ -70,6 +70,10 @@ for (const build of builds) for (const seed of seeds) for (const cls of classes)
       if (!nsec.exits.some(e => e.side === opp && e.t === ex.t)) { console.log('EXIT MISMATCH', seed, cls, size, cond, d, f, l, ex.side, ex.t); fails++; }
     }
     stats.exits += sec.exits.length; stats.ladders += sec.ladders.length;
+    // exits open onto floor, never into structure; every planned ladder is built, and on floor
+    for (const ex of sec.exits) if (sec.rooms[ex.room].kind === 'structure') { console.log('EXIT INTO STRUCTURE', build, seed, cls, size, cond, d, f, l, ex.side, ex.t); fails++; }
+    for (const L of conn.ladders.get(d + '/' + f + '/' + l) || []) { const dd = L.dir === 'down' ? d + 1 : d - 1; if (DP.liveAt(ship, d, f, l, L.x, L.y) && DP.liveAt(ship, dd, f, l, L.x, L.y) && !sec.ladders.some(o => o.x === L.x && o.y === L.y && o.dir === L.dir)) { console.log('LADDER DROPPED', build, seed, cls, size, cond, d, f, l, L); fails++; } }
+    for (const p of sec.props) if (p.t === 'ladder' && sec.rooms[p.room].kind === 'structure') { console.log('LADDER IN STRUCTURE', build, seed, cls, size, cond, d, f, l, p.x, p.y); fails++; }
     // ladders and lifts agree with the deck above and below
     for (const L of sec.ladders) {
       const dd = L.dir === 'down' ? d + 1 : d - 1; const other = sect(dd, f, l);

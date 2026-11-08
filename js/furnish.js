@@ -219,9 +219,9 @@
     for (const p of v.props) {
       const q = turned ? { x: b.x0 + (ch - p.y - p.h), y: b.y0 + p.x, w: p.h, h: p.w, rot: (p.rot + 90) % 360 } : { x: b.x0 + p.x, y: b.y0 + p.y, w: p.w, h: p.h, rot: p.rot };
       const np = Object.assign({}, p, q, { room: room.id });
-      // a door forced off its slots takes the square; the piece's prop there is left off the map
+      // a door forced off its slots, or a ladder, takes the square; the piece's prop there is left off the map
       let blocked = false;
-      for (let yy = np.y; yy < np.y + np.h; yy++) for (let xx = np.x; xx < np.x + np.w; xx++) if (sec.reserved.has(K(xx, yy))) blocked = true;
+      for (let yy = np.y; yy < np.y + np.h; yy++) for (let xx = np.x; xx < np.x + np.w; xx++) if (sec.reserved.has(K(xx, yy)) || occ.has(K(xx, yy))) blocked = true;
       if (blocked) { room.displaced = (room.displaced || 0) + 1; continue; }
       for (let yy = np.y; yy < np.y + np.h; yy++) for (let xx = np.x; xx < np.x + np.w; xx++) occ.add(K(xx, yy));
       sec.props.push(np);
@@ -241,7 +241,7 @@
     // with rungs: it can share a square with a junction opening, so a reserved square does not stop it.
     for (const L of sec.ladders) {
       const k = K(L.x, L.y); const id = sec.owner[L.y] ? sec.owner[L.y][L.x] : -1;
-      if (id < 0 || sec.cuts.has(k)) continue;
+      if (id < 0 || sec.cuts.has(k) || sec.rooms[id].kind === 'structure') continue;
       const room = sec.rooms[id];
       const twin = sec.props.find(p => p.t === 'ladder' && p.x === L.x && p.y === L.y);
       if (twin) { if (twin.dir !== L.dir) twin.dir = 'both'; }   // one well, rungs up and down
