@@ -3,18 +3,26 @@ const fs = require('fs'), vm = require('vm'), path = require('path');
 globalThis.DP = {};
 for (const f of ['rng', 'data', 'hull', 'geom', 'layout', 'furnish']) vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'js', f + '.js'), 'utf8'), { filename: f + '.js' });
 const DP = globalThis.DP;
-let fails = 0, built = 0, stats = { rooms: 0, doors: 0, props: 0, sealed: 0, deadRooms: 0, exits: 0, repairs: 0, voids: 0, ladders: 0 };
+let fails = 0, built = 0, stats = { rooms: 0, doors: 0, props: 0, sealed: 0, deadRooms: 0, exits: 0, repairs: 0, voids: 0, ladders: 0, nudged: 0 };
 const seeds = process.argv[2] ? [process.argv[2]] : ['ALPHA1', 'BRAVO2', 'CHRLY3', 'DELTA4', 'ECHO55', 'FXTROT'];
-for (const seed of seeds) for (const cls of DP.CLASS_ORDER) for (const size of ['s', 'm', 'l']) for (const cond of ['intact', 'derelict']) {
+const sizes = process.argv[3] ? process.argv[3].split(',') : ['xs', 's', 'm', 'l'];
+for (const seed of seeds) for (const cls of DP.CLASS_ORDER) for (const size of sizes) for (const cond of ['intact', 'derelict']) {
   const ship = DP.makeShip({ seed, cls, size, condition: cond });
   const conn = DP.shipConnections(ship);
   if (conn.components !== 1) { console.log('SHIP NOT CONNECTED', seed, cls, size, cond, 'components', conn.components); fails++; }
   stats.repairs += [...conn.ladders.values()].flat().filter(L => L.repair && L.dir === 'down').length + [...conn.exits.values()].flat().filter(e => e.kind === 'hatch').length / 2;
   stats.voids += (ship.geo.voids || []).length;
-  for (const [d, f, l] of [[0, 2, 1], [1, 0, 1], [2, 3, 0], [ship.D - 1, ship.F - 1, 2], [1, 4, 1], [3, 5, 2], [2, 6, 1]]) {
-    if (!DP.sectorExists(ship, d, f, l)) continue;
+  // sectors are built once per ship; neighbours are looked up from the same cache
+  const cache = new Map();
+  const build = (d, f, l) => { const k = d + '/' + f + '/' + l; if (!cache.has(k)) cache.set(k, DP.buildSector(ship, d, f, l)); return cache.get(k); };
+  // a spread of up to seven live sectors across the ship
+  const live = [];
+  for (let d = 0; d < ship.D; d++) for (let f = 0; f < ship.F; f++) for (let l = 0; l < ship.Lat; l++) if (DP.sectorLive(ship, d, f, l)) live.push([d, f, l]);
+  const step = Math.max(1, Math.floor(live.length / 7));
+  const sample = live.filter((_, i) => i % step === 0).slice(0, 7);
+  for (const [d, f, l] of sample) {
     let sec;
-    try { sec = DP.buildSector(ship, d, f, l); } catch (e) { console.log('THROW', seed, cls, size, cond, d, f, l, e.stack); fails++; continue; }
+    try { sec = build(d, f, l); } catch (e) { console.log('THROW', seed, cls, size, cond, d, f, l, e.stack); fails++; continue; }
     built++;
     // every cell owned
     for (const k of sec.hull) { const [x, y] = k.split(',').map(Number); if (sec.owner[y][x] < 0) { console.log('UNOWNED', seed, cls, size, d, f, l, x, y); fails++; break; } }
@@ -35,24 +43,27 @@ for (const seed of seeds) for (const cls of DP.CLASS_ORDER) for (const size of [
     if (dead.length) { stats.deadRooms += dead.length; console.log('UNREACHABLE', seed, cls, size, cond, d, f, l, 'islands', islands.length, dead.map(r => r.name + '#' + r.id + '(' + r.cells.length + ')').join(', ')); fails++; }
     // props inside their rooms and not overlapping
     const occ = new Set();
-    for (const p of sec.props) for (let yy = p.y; yy < p.y + p.h; yy++) for (let xx = p.x; xx < p.x + p.w; xx++) { const k = xx + ',' + yy; if (occ.has(k)) { console.log('OVERLAP', seed, cls, d, f, l, p.t, xx, yy); fails++; } occ.add(k); if (sec.owner[yy][xx] !== p.room) { console.log('PROP OUTSIDE', seed, cls, d, f, l, p.t); fails++; } if (sec.reserved.has(k)) { console.log('PROP ON DOOR', seed, cls, d, f, l, p.t); fails++; } }
+    const inDoor = (k) => sec.doors.some(dr => dr.kind !== 'join' && DP._layout.doorCells(dr).some(([x, y]) => x + ',' + y === k));
+    for (const p of sec.props) for (let yy = p.y; yy < p.y + p.h; yy++) for (let xx = p.x; xx < p.x + p.w; xx++) { const k = xx + ',' + yy; if (occ.has(k)) { console.log('OVERLAP', seed, cls, d, f, l, p.t, xx, yy); fails++; } occ.add(k); if (sec.owner[yy][xx] !== p.room) { console.log('PROP OUTSIDE', seed, cls, d, f, l, p.t); fails++; } if (sec.reserved.has(k) && (p.t !== 'ladder' || inDoor(k))) { console.log('PROP ON DOOR', seed, cls, size, cond, d, f, l, p.t, k); fails++; } }
     stats.rooms += rooms.length; stats.doors += sec.doors.length; stats.props += sec.props.length; stats.sealed += sec.doors.filter(x => x.state === 'sealed').length;
     // exits match the neighbour (build the neighbour and compare)
     for (const ex of sec.exits) {
       const nf = ex.side === 'N' ? f - 1 : ex.side === 'S' ? f + 1 : f, nl = ex.side === 'W' ? l - 1 : ex.side === 'E' ? l + 1 : l;
       const opp = { N: 'S', S: 'N', W: 'E', E: 'W' }[ex.side];
-      const nsec = DP.buildSector(ship, d, nf, nl);
+      const nsec = build(d, nf, nl);
       if (!nsec.exits.some(e => e.side === opp && e.t === ex.t)) { console.log('EXIT MISMATCH', seed, cls, size, cond, d, f, l, ex.side, ex.t); fails++; }
     }
     stats.exits += sec.exits.length; stats.ladders += sec.ladders.length;
     // ladders and lifts agree with the deck above and below
     for (const L of sec.ladders) {
-      const dd = L.dir === 'down' ? d + 1 : d - 1; const other = DP.buildSector(ship, dd, f, l);
+      const dd = L.dir === 'down' ? d + 1 : d - 1; const other = build(dd, f, l);
       if (!other.ladders.some(o => o.x === L.x && o.y === L.y && o.dir !== L.dir)) { console.log('LADDER MISMATCH', seed, cls, size, cond, d, f, l, L); fails++; }
-      if (!sec.props.some(p => p.t === 'ladder' && p.dir === L.dir)) { console.log('LADDER NOT PLACED', seed, cls, size, cond, d, f, l, L); fails++; }
+      if (!sec.props.some(p => p.t === 'ladder' && (p.dir === L.dir || p.dir === 'both'))) { console.log('LADDER NOT PLACED', seed, cls, size, cond, d, f, l, L); fails++; }
+      else if (!L.repair && (L.px !== L.x || L.py !== L.y)) { console.log('LADDER NUDGED', seed, cls, size, cond, d, f, l, L); fails++; }
+      else if (L.repair && (L.px !== L.x || L.py !== L.y)) stats.nudged++;
     }
     const lift = sec.rooms.find(r => r.type === 'lift' && r.cells.length);
-    if (lift) for (const dd of lift.liftDecks) { if (dd === d) continue; const other = DP.buildSector(ship, dd, f, l); const ol = other.rooms.find(r => r.type === 'lift' && r.cells.length); if (!ol || ol.bbox.x0 !== lift.bbox.x0 || ol.bbox.y0 !== lift.bbox.y0) { console.log('LIFT MISMATCH', seed, cls, size, cond, d, f, l, dd); fails++; } }
+    if (lift) for (const dd of lift.liftDecks) { if (dd === d) continue; const other = build(dd, f, l); const ol = other.rooms.find(r => r.type === 'lift' && r.cells.length); if (!ol || ol.bbox.x0 !== lift.bbox.x0 || ol.bbox.y0 !== lift.bbox.y0) { console.log('LIFT MISMATCH', seed, cls, size, cond, d, f, l, dd); fails++; } }
   }
 }
 console.log('built', built, 'sectors; fails', fails, stats, 'avg rooms', (stats.rooms / built).toFixed(1), 'avg props', (stats.props / built).toFixed(1));

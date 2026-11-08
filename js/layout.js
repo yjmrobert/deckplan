@@ -14,15 +14,15 @@
   const SUITES = {
     command: [['bridge', ['ready', 'comms', 'maproom', 'office', 'wash']], ['firecon', ['office', 'archive', 'wash']], ['control', ['office', 'storage']], ['security', ['cell', 'office', 'armory']], ['archive', ['office', 'storage']], ['lounge', ['cabin', 'cabin', 'wash']]],
     habitation: [['mess', ['galley', 'cold', 'wash', 'storage']], ['barracks', ['wash', 'locker', 'armory']], ['commons', ['cabin', 'cabin', 'cabin', 'wash']], ['cabins', ['wash', 'locker']], ['lounge', ['stateroom', 'stateroom', 'wash']], ['gym', ['wash', 'locker']], ['infirmary', ['pharmacy', 'wash']], ['laundry', ['storage']], ['galley', ['cold', 'storage']]],
-    enginarium: [['engines', ['control', 'tools', 'coolant', 'workshop']], ['reactor', ['control', 'coolant', 'pump', 'storage']], ['workshop', ['tools', 'storage', 'wash']], ['generator', ['tanks', 'control']], ['life', ['vents', 'tanks']], ['furnace', ['fuel', 'tools']], ['pump', ['tanks', 'storage']]],
-    cargo: [['hold', ['storage', 'office', 'locker']], ['loading', ['customs', 'office', 'storage']], ['storage', ['cold', 'locker']], ['crane', ['tools', 'storage']], ['tanks', ['pump']], ['hold', ['cold', 'storage']]],
+    enginarium: [['engines', ['control', 'tools', 'coolant', 'workshop']], ['reactor', ['control', 'coolant', 'pump', 'storage']], ['machinehall', ['tools', 'workshop', 'storage', 'control']], ['fuelbay', ['pump', 'tanks', 'storage']], ['conduit', ['control', 'coolant', 'storage']], ['capacitor', ['control', 'storage']], ['workshop', ['tools', 'storage', 'wash']], ['generator', ['tanks', 'control']], ['life', ['vents', 'tanks']], ['furnace', ['fuel', 'tools']], ['pump', ['tanks', 'storage']]],
+    cargo: [['hold', ['storage', 'office', 'locker']], ['bulkstore', ['storage', 'locker', 'office', 'cold']], ['loading', ['customs', 'office', 'storage']], ['storage', ['cold', 'locker']], ['crane', ['tools', 'storage']], ['tanks', ['pump']], ['hold', ['cold', 'storage']], ['fuelbay', ['pump', 'tanks']]],
     medicae: [['ward', ['surgery', 'pharmacy', 'wash', 'morgue']], ['medbay', ['pharmacy', 'wash', 'office']], ['lab', ['quarantine', 'specimen', 'cold']], ['quarantine', ['wash', 'morgue']], ['surgery', ['pharmacy', 'wash']]],
     armoury: [['weapons', ['magazine', 'magazine', 'control', 'tools']], ['armory', ['magazine', 'locker', 'office']], ['barracks', ['wash', 'armory', 'locker']], ['range', ['armory', 'storage']], ['drill', ['locker', 'wash']], ['guard', ['brig', 'cell', 'armory']]],
     sanctum: [['nave', ['reliquary', 'shrine', 'confessional', 'cell', 'cell']], ['scriptorium', ['archive', 'cell', 'cell']], ['refectory', ['galley', 'cell', 'cell', 'wash']], ['shrine', ['cell']], ['crypt', ['shrine', 'reliquary']], ['archive', ['cell', 'storage']]],
     science: [['lab', ['contain', 'specimen', 'clean', 'cold', 'office']], ['hydro', ['tanks', 'storage', 'lab']], ['sensor', ['comms', 'archive', 'office']], ['menagerie', ['specimen', 'lab', 'wash']], ['clean', ['lab', 'storage']]],
-    maintenance: [['workshop', ['tools', 'storage', 'pump']], ['sump', ['pump', 'tanks']], ['vents', ['tanks', 'pump', 'storage']], ['scrap', ['storage', 'tools']], ['crew', ['wash', 'storage', 'locker']], ['generator', ['tanks', 'control']], ['tanks', ['pump', 'storage']]],
+    maintenance: [['workshop', ['tools', 'storage', 'pump']], ['machinehall', ['tools', 'storage', 'pump', 'workshop']], ['sump', ['pump', 'tanks']], ['vents', ['tanks', 'pump', 'storage']], ['scrap', ['storage', 'tools']], ['crew', ['wash', 'storage', 'locker']], ['generator', ['tanks', 'control']], ['conduit', ['control', 'storage']], ['tanks', ['pump', 'storage']]],
     brig: [['guard', ['cells', 'cell', 'cell', 'interview', 'armory']], ['cells', ['cell', 'cell', 'wash', 'guard']], ['security', ['interview', 'cell', 'office', 'morgue']], ['yard', ['guard', 'wash', 'cells']], ['guard', ['cell', 'cell', 'cell']]],
-    hangar: [['hangar', ['ready', 'fuel', 'workshop', 'locker', 'control', 'magazine']], ['workshop', ['tools', 'fuel', 'storage']], ['ready', ['locker', 'wash', 'office']], ['control', ['office', 'storage']]],
+    hangar: [['hangar', ['ready', 'fuel', 'workshop', 'locker', 'control', 'magazine']], ['shipbay', ['fuel', 'ready', 'workshop', 'magazine', 'locker', 'control']], ['fuelbay', ['pump', 'tanks', 'storage']], ['workshop', ['tools', 'fuel', 'storage']], ['ready', ['locker', 'wash', 'office']], ['control', ['office', 'storage']]],
     void: [['void', ['void', 'nest', 'scrap', 'storage']], ['nest', ['nest', 'void']], ['scrap', ['storage', 'void']], ['hold', ['void', 'storage']]],
   };
   function roomName(type) { return (DP.ROOMS[type] || { name: type }).name; }
@@ -53,7 +53,7 @@
     const sh = DP.sectorHull(ship, d, f, l), conn = DP.shipConnections(ship);
     const hull = new Set(sh.hull), cuts = new Map(sh.cuts);
     sh.islands.forEach((cells, i) => { if (conn.dead.has(d + '/' + f + '/' + l + '#' + i)) for (const k of cells) { hull.delete(k); cuts.delete(k); } });
-    const sec = { d, f, l, label: DP.sectorLabel(ship, d, f, l), W: ship.W, H: ship.H, rooms: [], owner, doors: [], props: [], decor: [], reserved: new Set(), rubble: [], zones: [], exits: [], ladders: [], hull, cuts, islands: sh.islands.length, rows: [] };
+    const sec = { d, f, l, label: DP.sectorLabel(ship, d, f, l), W: ship.W, H: ship.H, rooms: [], owner, doors: [], props: [], decor: [], reserved: new Set(), pinned: new Set(), rubble: [], zones: [], exits: [], ladders: [], hull, cuts, islands: sh.islands.length, rows: [] };
     for (let y = 0; y < ship.H; y++) { let a = -1, b = -1; for (let x = 0; x < ship.W; x++) if (sh.hull.has(K(x, y))) { if (a < 0) a = x; b = x + 1; } sec.rows.push(a < 0 ? null : [a, b]); }
     return sec;
   }
@@ -104,9 +104,9 @@
     let changed = true, guard = 0;
     while (changed && guard++ < 10) {
       changed = false;
-      for (const k of sec.hull) { const [x, y] = unK(k); if (sec.owner[y][x] >= 0) continue; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const o = (sec.owner[y + dy] || [])[x + dx]; if (o >= 0 && sec.rooms[o].kind === 'room') { sec.owner[y][x] = o; sec.rooms[o].cells.push([x, y]); sec.rooms[o].set.add(k); changed = true; break; } } }
+      for (const k of sec.hull) { const [x, y] = unK(k); if (sec.owner[y][x] >= 0) continue; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const o = (sec.owner[y + dy] || [])[x + dx]; if (o >= 0 && sec.rooms[o].kind === 'room' && sec.rooms[o].type !== 'lift') { sec.owner[y][x] = o; sec.rooms[o].cells.push([x, y]); sec.rooms[o].set.add(k); changed = true; break; } } }
     }
-    for (const k of sec.hull) { const [x, y] = unK(k); if (sec.owner[y][x] >= 0) continue; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const o = (sec.owner[y + dy] || [])[x + dx]; if (o >= 0) { sec.owner[y][x] = o; sec.rooms[o].cells.push([x, y]); sec.rooms[o].set.add(k); break; } } }
+    for (const k of sec.hull) { const [x, y] = unK(k); if (sec.owner[y][x] >= 0) continue; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const o = (sec.owner[y + dy] || [])[x + dx]; if (o >= 0 && sec.rooms[o].type !== 'lift') { sec.owner[y][x] = o; sec.rooms[o].cells.push([x, y]); sec.rooms[o].set.add(k); break; } } }
     for (const r of sec.rooms) computeBbox(r);
     for (const r of sec.rooms) {
       if (!r.cells.length || r.type === 'lift') continue;
@@ -128,6 +128,8 @@
       if (rect.w <= 8 && rect.h <= 8 && area <= 40) leaf = true;
       else if (area >= 36 && area <= 160 && Math.max(rect.w, rect.h) <= 16 && rng.chance(ctx.hallP)) leaf = true;
     }
+    // great halls: reactor halls, holds and ship bays can take most of a block
+    if (!leaf && depth >= 1 && area >= 120 && area <= 320 && Math.min(rect.w, rect.h) >= 7 && Math.max(rect.w, rect.h) <= 26 && rng.chance(ctx.bigP)) leaf = true;
     if (leaf) { out.leaves.push(rect); return; }
     let vertical = canV && (!canH || rect.w > rect.h * 1.2 || (rect.h <= rect.w * 1.2 && rng.chance(0.5)));
     const len = vertical ? rect.w : rect.h;
@@ -187,8 +189,9 @@
       if (!zoneIndex.has(zt)) { zoneIndex.set(zt, sec.zones.length); sec.zones.push({ id: sec.zones.length, type: zt, name: DP.ZONES[zt].name, letter: String.fromCharCode(65 + sec.zones.length), blocks: [] }); }
       b.zone = zoneIndex.get(zt); sec.zones[b.zone].blocks.push(b.rect);
       const hallP = ({ cargo: 0.5, hangar: 0.6, enginarium: 0.4, void: 0.4, brig: 0.3 })[zt] || 0.25;
+      const bigP = ({ cargo: 0.45, hangar: 0.5, enginarium: 0.4, maintenance: 0.25, armoury: 0.15, sanctum: 0.15, void: 0.2 })[zt] || 0.06;
       const out = { leaves: [], corridors: [] };
-      bsp(b.rect, 1, rng.fork('bsp' + b.id), { hallP }, out);
+      bsp(b.rect, 1, rng.fork('bsp' + b.id), { hallP, bigP }, out);
       for (const c of out.corridors) addRoom(sec, 'corridor', rectCells(c), { kind: 'corridor', depth: c.depth, name: c.depth === 1 ? 'Corridor' : 'Passage', lane: 'side', block: b.id, zone: b.zone });
       for (const leaf of out.leaves) addRoom(sec, 'storage', rectCells(leaf), { zone: b.zone, block: b.id });
     }
@@ -217,10 +220,12 @@
       const lift = conn.lifts.get(f + '/' + l);
       if (lift && lift.decks.includes(d)) {
         const cells = lift.cells.filter(([x, y]) => sec.hull.has(K(x, y)));
-        if (cells.length === 4) { const r = addRoom(sec, 'lift', cells, { zone: -1 }); r.name = 'Lift'; r.liftDecks = lift.decks; tidy(sec); }
+        if (cells.length === 4) { const r = addRoom(sec, 'lift', cells, { zone: -1 }); r.name = 'Lift'; r.liftDecks = lift.decks.filter(dd => lift.cells.every(([x, y]) => DP.liveAt(ship, dd, f, l, x, y))); tidy(sec); }
       }
     }
-    sec.ladders = (conn.ladders.get(ckey) || []).map(L => Object.assign({}, L));
+    // ladder squares are pinned: doors keep off them and the furnisher leaves them free
+    sec.ladders = (conn.ladders.get(ckey) || []).map(L => Object.assign({}, L)).filter(L => { const dd = L.dir === 'down' ? d + 1 : d - 1; const k = K(L.x, L.y); return sec.hull.has(k) && !sec.cuts.has(k) && DP.liveAt(ship, dd, f, l, L.x, L.y) && !DP.sectorHull(ship, dd, f, l).cuts.has(k); });
+    for (const L of sec.ladders) sec.pinned.add(K(L.x, L.y));
 
     // 5. room types: suites per block
     assignSuites(ship, sec, blocks, rng.fork('suites'));
@@ -330,14 +335,17 @@
   }
 
   // ---- doors ------------------------------------------------------------------------------
+  // a chamfered square keeps its two remaining sides, so a door may still sit on those
+  const MISSING = { NW: 'NW', NE: 'NE', SW: 'SW', SE: 'SE' };
+  const sideOpen = (sec, x, y, side) => { const c = sec.cuts.get(K(x, y)); return !c || !MISSING[c].includes(side); };
   function adjacency(sec) {
     const map = new Map(); const H = sec.H, W = sec.W;
     const add = (a, b, e) => { if (a > b) [a, b] = [b, a]; const k = a + ':' + b; if (!map.has(k)) map.set(k, [a, b, []]); map.get(k)[2].push(e); };
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      const a = sec.owner[y][x]; if (a < 0 || sec.cuts.has(K(x, y))) continue;
+      const a = sec.owner[y][x]; if (a < 0) continue;
       const e = x + 1 < W ? sec.owner[y][x + 1] : -1, s = y + 1 < H ? sec.owner[y + 1][x] : -1;
-      if (e >= 0 && e !== a && !sec.cuts.has(K(x + 1, y))) add(a, e, { x: x + 1, y, side: 'W' });
-      if (s >= 0 && s !== a && !sec.cuts.has(K(x, y + 1))) add(a, s, { x, y: y + 1, side: 'N' });
+      if (e >= 0 && e !== a && sideOpen(sec, x, y, 'E') && sideOpen(sec, x + 1, y, 'W')) add(a, e, { x: x + 1, y, side: 'W' });
+      if (s >= 0 && s !== a && sideOpen(sec, x, y, 'S') && sideOpen(sec, x, y + 1, 'N')) add(a, s, { x, y: y + 1, side: 'N' });
     }
     return [...map.values()];
   }
@@ -363,14 +371,20 @@
   }
   function addDoor(sec, a, b, run, kind, width, rng) {
     const w = Math.min(width || 1, run.length);
-    const start = rng ? Math.max(0, Math.min(run.length - w, Math.floor((run.length - w) / 2) + rng.int(-1, 1))) : Math.floor((run.length - w) / 2);
+    const mid = Math.floor((run.length - w) / 2);
+    let start = rng ? Math.max(0, Math.min(run.length - w, mid + rng.int(-1, 1))) : mid;
+    // keep off pinned squares (ladders): try the nearest other positions along the run. A junction opening may
+    // share a square with a ladder; a real door may not, and returns null when the run leaves it nowhere to go.
+    const clear = (s) => doorCells({ x: run[s].x, y: run[s].y, side: run[s].side, w }).every(([x, y]) => !sec.pinned.has(K(x, y)));
+    if (!clear(start)) { for (let k = 1; k <= run.length && !clear(start); k++) { const cand = [start - k, start + k].find(s => s >= 0 && s <= run.length - w && clear(s)); if (cand != null) start = cand; } }
+    if (!clear(start) && kind !== 'join') return null;
     const e = run[start];
     const d = { x: e.x, y: e.y, side: e.side, a, b, kind: kind || 'door', w };
     sec.doors.push(d);
     for (const [x, y] of doorCells(d)) sec.reserved.add(K(x, y));
     return d;
   }
-  const WIDE = new Set(['hold', 'hangar', 'weapons', 'barracks', 'engines', 'reactor', 'nave', 'loading', 'crane', 'mess', 'ward', 'cells', 'drill', 'range', 'hydro', 'sump', 'scrap', 'furnace', 'refectory', 'commons']);
+  const WIDE = new Set(['hold', 'hangar', 'weapons', 'barracks', 'engines', 'reactor', 'nave', 'loading', 'crane', 'mess', 'ward', 'cells', 'drill', 'range', 'hydro', 'sump', 'scrap', 'furnace', 'refectory', 'commons', 'shipbay', 'fuelbay', 'bulkstore', 'machinehall', 'conduit']);
   const corrRank = (r) => r.lane === 'spine' || r.lane === 'cross' ? 0 : (r.depth || 1);
   function connect(ship, sec, rng) {
     const adj = adjacency(sec);
@@ -385,7 +399,8 @@
       if (!isCorr(a) || !isCorr(b)) continue;
       const run = longestRun(edges)[0];
       const minor = Math.max(corrRank(sec.rooms[a]), corrRank(sec.rooms[b])) >= 1;
-      if (minor && run.length <= 2 && rng.chance(0.3)) { const d = addDoor(sec, a, b, run, 'bulkhead', run.length, null); d.state = rng.weighted([['open', 5], ['closed', 3], ['sealed', 2]]); }
+      const bh = minor && run.length <= 2 && rng.chance(0.3) ? addDoor(sec, a, b, run, 'bulkhead', run.length, null) : null;
+      if (bh) bh.state = rng.weighted([['open', 5], ['closed', 3], ['sealed', 2]]);
       else addDoor(sec, a, b, run, 'join', run.length, null);
       doorBetween.add(key(a, b));
     }
@@ -394,17 +409,18 @@
       if (!r.cells.length || r.kind !== 'room') continue;
       const corrs = (byRoom.get(r.id) || []).filter(([o]) => isCorr(o));
       let parentDoor = false;
-      if (r.parent != null && sec.rooms[r.parent].cells.length) { const e = edgesBetween(r.id, r.parent); if (e) { addDoor(sec, r.id, r.parent, longestRun(e)[0], 'door', 1, rng); doorBetween.add(key(r.id, r.parent)); parentDoor = true; } }
+      if (r.parent != null && sec.rooms[r.parent].cells.length) { const e = edgesBetween(r.id, r.parent); if (e && addDoor(sec, r.id, r.parent, longestRun(e)[0], 'door', 1, rng)) { doorBetween.add(key(r.id, r.parent)); parentDoor = true; } }
       if (!corrs.length) continue;
       if (parentDoor && PRIVATE.has(r.type)) continue;
       if (parentDoor && r.type !== 'void' && rng.chance(0.45)) continue;
       corrs.sort((p, q) => corrRank(sec.rooms[p[0]]) - corrRank(sec.rooms[q[0]]) || longestRun(q[1])[0].length - longestRun(p[1])[0].length);
-      const [o, edges] = corrs[0];
-      const run = longestRun(edges)[0];
-      const wide = WIDE.has(r.type) && run.length >= 3;
-      addDoor(sec, r.id, o, run, wide ? 'cargo' : 'door', wide ? 2 : 1, rng);
-      doorBetween.add(key(r.id, o));
-      if (r.cells.length >= 40 && corrs.length > 1 && rng.chance(0.7)) { const [o2, e2] = corrs[1]; addDoor(sec, r.id, o2, longestRun(e2)[0], 'door', 1, rng); doorBetween.add(key(r.id, o2)); }
+      let placedCorr = -1;
+      for (const [o, edges] of corrs) {
+        const run = longestRun(edges)[0];
+        const wide = WIDE.has(r.type) && run.length >= 3;
+        if (addDoor(sec, r.id, o, run, wide ? 'cargo' : 'door', wide ? 2 : 1, rng)) { doorBetween.add(key(r.id, o)); placedCorr = o; break; }
+      }
+      if (r.cells.length >= 40 && corrs.length > 1 && rng.chance(0.7)) { const alt = corrs.find(([o]) => o !== placedCorr); if (alt && addDoor(sec, r.id, alt[0], longestRun(alt[1])[0], 'door', 1, rng)) doorBetween.add(key(r.id, alt[0])); }
     }
     // reachability: patch unreachable rooms through public neighbours first
     // the hull may split this sector into islands (a waist, a bite); each island is walked from its own start
@@ -433,9 +449,8 @@
         if (!nbs.length) continue;
         const score = ([o, e]) => { const ro = sec.rooms[o]; return (isCorr(o) ? 0 : PRIVATE.has(ro.type) ? 40 : ro.zone === r.zone ? 10 : 20) - Math.min(9, longestRun(e)[0].length); };
         nbs.sort((p, q) => score(p) - score(q));
-        const [o, edges] = nbs[0];
-        addDoor(sec, r.id, o, longestRun(edges)[0], 'door', 1, rng); doorBetween.add(key(r.id, o));
-        patched = true; break;
+        for (const [o, edges] of nbs) { if (addDoor(sec, r.id, o, longestRun(edges)[0], 'door', 1, rng)) { doorBetween.add(key(r.id, o)); patched = true; break; } }
+        if (patched) break;
       }
       if (!patched) break;
     }
@@ -446,8 +461,8 @@
       if (doorBetween.has(key(a, b)) || PRIVATE.has(ra.type) || PRIVATE.has(rb.type)) continue;
       const run = longestRun(edges)[0]; if (run.length < 2) continue;
       const same = ra.suite != null && ra.suite === rb.suite;
-      if (rng.chance(same ? 0.3 : ra.zone === rb.zone ? 0.12 : 0.03)) { addDoor(sec, a, b, run, 'door', 1, rng); doorBetween.add(key(a, b)); }
-      else if (rng.chance(0.03)) { addDoor(sec, a, b, run, 'hatch', 1, rng); doorBetween.add(key(a, b)); }
+      if (rng.chance(same ? 0.3 : ra.zone === rb.zone ? 0.12 : 0.03)) { if (addDoor(sec, a, b, run, 'door', 1, rng)) doorBetween.add(key(a, b)); }
+      else if (rng.chance(0.03)) { if (addDoor(sec, a, b, run, 'hatch', 1, rng)) doorBetween.add(key(a, b)); }
     }
     // airlocks open onto space
     for (const r of sec.rooms) {
