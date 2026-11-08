@@ -37,7 +37,8 @@
     const C = DP.CLASSES[cls];
     const size = DP.SECTOR_SIZES[params.size] ? params.size : 'm';
     const condition = C.forceCondition || (DP.CONDITIONS[params.condition] ? params.condition : 'intact');
-    const ship = { seed, cls, className: C.name, C, F: C.frames, Lat: C.laterals, D: C.decks, size, W: DP.SECTOR_SIZES[size].w, H: DP.SECTOR_SIZES[size].h, condition };
+    const build = DP.BUILDS[params.build] ? params.build : 'organic';
+    const ship = { seed, cls, className: C.name, C, F: C.frames, Lat: C.laterals, D: C.decks, size, W: DP.SECTOR_SIZES[size].w, H: DP.SECTOR_SIZES[size].h, condition, build };
     DP.shipGeometry(ship); DP.shipNet(ship);
     return ship;
   };
@@ -53,7 +54,7 @@
     const sh = DP.sectorHull(ship, d, f, l), conn = DP.shipConnections(ship);
     const hull = new Set(sh.hull), cuts = new Map(sh.cuts);
     sh.islands.forEach((cells, i) => { if (conn.dead.has(d + '/' + f + '/' + l + '#' + i)) for (const k of cells) { hull.delete(k); cuts.delete(k); } });
-    const sec = { d, f, l, label: DP.sectorLabel(ship, d, f, l), W: ship.W, H: ship.H, rooms: [], owner, doors: [], props: [], decor: [], reserved: new Set(), pinned: new Set(), rubble: [], zones: [], exits: [], ladders: [], hull, cuts, islands: sh.islands.length, rows: [] };
+    const sec = { d, f, l, label: DP.sectorLabel(ship, d, f, l), W: ship.W, H: ship.H, rooms: [], owner, doors: [], props: [], decor: [], reserved: new Set(), pinned: new Set(), rubble: [], zones: [], exits: [], ladders: [], hull, cuts, islands: sh.islands.length, rows: [], kit: ship.build === 'kit', slots: new Set() };
     for (let y = 0; y < ship.H; y++) { let a = -1, b = -1; for (let x = 0; x < ship.W; x++) if (sh.hull.has(K(x, y))) { if (a < 0) a = x; b = x + 1; } sec.rows.push(a < 0 ? null : [a, b]); }
     return sec;
   }
@@ -94,13 +95,15 @@
     return m;
   }
   // after clipping and carving: split rooms cut in two, merge slivers, give every hull square an owner
+  // (in kit mode the leftover squares are structure, so nothing grows and nothing merges)
   function tidy(sec) {
     const n = sec.rooms.length;
     for (let i = 0; i < n; i++) {
-      const r = sec.rooms[i]; if (!r.cells.length) continue;
+      const r = sec.rooms[i]; if (!r.cells.length || r.kind === 'structure') continue;
       const comps = components(r.cells, r.set).sort((a, b) => b.length - a.length);
-      for (const c of comps.slice(1)) { const nr = addRoom(sec, r.type, c, { zone: r.zone, block: r.block, depth: r.depth, kind: r.kind }); if (r.kind === 'corridor') nr.name = r.name; }
+      for (const c of comps.slice(1)) { const nr = addRoom(sec, r.type, c, { zone: r.zone, block: r.block, depth: r.depth, kind: r.kind, lane: r.lane }); if (r.kind === 'corridor') nr.name = r.name; }
     }
+    if (sec.kit) { for (const r of sec.rooms) computeBbox(r); return; }
     let changed = true, guard = 0;
     while (changed && guard++ < 10) {
       changed = false;
@@ -147,6 +150,92 @@
     bsp(c1, depth + 1, rng, ctx, out); bsp(c2, depth + 1, rng, ctx, out);
   }
 
+  // ---- kit: standard parts ------------------------------------------------------------
+  // Door slots: the wall squares of a part that may take a door. Symmetric end to end, so a part reads the same
+  // whichever way round it is laid. Furnishing keeps off them, and in kit mode doors go nowhere else.
+  function slotIndex(len, i) {
+    const off = Math.abs(i - (len - 1) / 2);
+    if (off <= 0.5) return true;
+    if (off <= 1.5) return len >= 5;
+    if (off >= 3 && off <= 3.5) return len >= 7;
+    if (off >= 5 && off <= 5.5) return len >= 11;
+    return false;
+  }
+  DP.kitSlots = function (rect) {
+    const out = [];
+    for (let i = 0; i < rect.w; i++) if (slotIndex(rect.w, i)) { out.push([rect.x + i, rect.y]); if (rect.h > 1) out.push([rect.x + i, rect.y + rect.h - 1]); }
+    for (let j = 0; j < rect.h; j++) if (slotIndex(rect.h, j)) { out.push([rect.x, rect.y + j]); if (rect.w > 1) out.push([rect.x + rect.w - 1, rect.y + j]); }
+    return out;
+  };
+  const kitHeights = () => [...new Set(DP.KIT.footprints.flat())].sort((a, b) => a - b);
+  const kitWidths = (h) => [...new Set(DP.KIT.footprints.flatMap(([a, b]) => (a === h ? [b] : []).concat(b === h ? [a] : [])))].sort((a, b) => a - b);
+  // shelf heights that add up to h exactly (3, 4 and 5 cover every total from 3 up)
+  function kitSplit(h, rng, big) {
+    const HS = kitHeights();
+    const parts = []; let left = h, guard = 0;
+    while (left >= 3 && guard++ < 20) {
+      const cands = HS.filter(s => s <= left && (left - s === 0 || left - s >= 3));
+      if (!cands.length) break;
+      const s = rng.weighted(cands.map(s => [s, (big ? s * s : s) * (s === left ? 1.5 : 1)]));
+      parts.push(s); left -= s;
+    }
+    return parts;
+  }
+  // trim a corridor to the rows (or columns) where its whole width stands on hull, so every piece is a straight
+  function kitTrim(sec, room, rect, vertical) {
+    const keep = new Set();
+    if (vertical) { for (let y = rect.y; y < rect.y + rect.h; y++) { let ok = true; for (let x = rect.x; x < rect.x + rect.w; x++) if (!sec.hull.has(K(x, y))) ok = false; if (ok) for (let x = rect.x; x < rect.x + rect.w; x++) keep.add(K(x, y)); } }
+    else { for (let x = rect.x; x < rect.x + rect.w; x++) { let ok = true; for (let y = rect.y; y < rect.y + rect.h; y++) if (!sec.hull.has(K(x, y))) ok = false; if (ok) for (let y = rect.y; y < rect.y + rect.h; y++) keep.add(K(x, y)); } }
+    for (const [x, y] of room.cells) if (!keep.has(K(x, y))) sec.owner[y][x] = -1;
+    room.cells = room.cells.filter(([x, y]) => keep.has(K(x, y))); room.set = new Set(room.cells.map(([x, y]) => K(x, y)));
+  }
+  // fill a block with parts: streets across it every so often, then shelves of parts from the thoroughfare outward
+  function kitTileBlock(sec, b, zt, rng) {
+    const r = b.rect, big = DP.KIT.bigZones.includes(zt);
+    const free = (x, y) => x >= 0 && y >= 0 && x < sec.W && y < sec.H && sec.hull.has(K(x, y)) && !sec.cuts.has(K(x, y)) && sec.owner[y][x] < 0;
+    const colFree = (x, y, h) => { for (let yy = y; yy < y + h; yy++) if (!free(x, yy)) return false; return true; };
+    const streets = [];
+    if (r.h >= 17) { let y = r.y + rng.int(6, 11); while (y + 2 + 5 <= r.y + r.h) { streets.push(y); y += 2 + rng.int(6, 12); } }
+    for (const sy of streets) { const cells = []; for (let x = r.x; x < r.x + r.w; x++) if (free(x, sy) && free(x, sy + 1)) cells.push([x, sy], [x, sy + 1]); if (cells.length >= 6) addRoom(sec, 'corridor', cells, { kind: 'corridor', depth: 1, name: 'Corridor', lane: 'side', block: b.id, zone: b.zone }); }
+    const subs = []; let y0 = r.y;
+    for (const sy of streets) { subs.push({ x: r.x, y: y0, w: r.w, h: sy - y0 }); y0 = sy + 2; }
+    subs.push({ x: r.x, y: y0, w: r.w, h: r.y + r.h - y0 });
+    const fromEast = b.spineSide === 'E';
+    for (const s of subs) {
+      if (s.h < 3 || s.w < 3) continue;
+      let y = s.y;
+      for (const sh of kitSplit(s.h, rng, big)) {
+        const widths = kitWidths(sh);
+        let x = fromEast ? s.x + s.w - 1 : s.x;   // the column the cursor is on, moving away from the thoroughfare
+        for (let guard = 0; guard < 60 && x >= s.x && x < s.x + s.w; guard++) {
+          if (!colFree(x, y, sh)) { x += fromEast ? -1 : 1; continue; }
+          let run = 0; while (run < s.w) { const cx = fromEast ? x - run : x + run; if (cx < s.x || cx >= s.x + s.w || !colFree(cx, y, sh)) break; run++; }
+          const cands = widths.filter(w => w <= run);
+          if (!cands.length) { x += fromEast ? -run : run; continue; }
+          const good = cands.filter(w => run - w === 0 || run - w >= 3);
+          const pool = good.length ? good : cands;
+          const w = rng.weighted(pool.map(w => [w, (big ? w * w : w) * (w === run ? 2 : 1)]));
+          const rx = fromEast ? x - w + 1 : x;
+          const room = addRoom(sec, 'storage', rectCells({ x: rx, y, w, h: sh }), { zone: b.zone, block: b.id });
+          room.rect = { x: rx, y, w, h: sh };
+          for (const [cx, cy] of DP.kitSlots(room.rect)) sec.slots.add(K(cx, cy));
+          x += fromEast ? -w : w;
+        }
+        y += sh;
+      }
+    }
+  }
+  // every part gets its catalogue identity once its type is final
+  function assignParts(sec, rng) {
+    for (const r of sec.rooms) {
+      if (!r.cells.length || !r.rect) continue;
+      const w = Math.min(r.rect.w, r.rect.h), h = Math.max(r.rect.w, r.rect.h);
+      const variant = r.type === 'lift' ? '' : rng.chance(0.65) ? DP.KIT.variants[0] : rng.pick(DP.KIT.variants);
+      r.part = { id: `${r.type}-${w}x${h}${variant}`, type: r.type, w, h, rot: r.rect.w <= r.rect.h ? 0 : 90, variant, name: `${roomName(r.type)} ${w}×${h}${variant ? ' ' + variant : ''}` };
+    }
+  }
+  DP._kit = { slotIndex, kitWidths, kitHeights };
+
   // ---- build ------------------------------------------------------------------------
   function buildSector(ship, d, f, l) {
     const rng = DP.makeRng(`${ship.seed}/${ship.cls}/${ship.size}/${d}/${f}/${l}`);
@@ -162,9 +251,19 @@
       if (yb <= ya) return;
       const sx = spineX(bi);
       const r = addRoom(sec, 'corridor', rectCells({ x: sx, y: ya, w: sw, h: yb - ya }), { kind: 'corridor', depth: 0, name: sw === 3 ? 'Grand Thoroughfare' : 'Main Thoroughfare', lane: 'spine' });
+      if (sec.kit) kitTrim(sec, r, { x: sx, y: ya, w: sw, h: yb - ya }, true);
       spineRooms.push(r);
     });
-    for (const cy of crosses) addRoom(sec, 'corridor', rectCells({ x: 0, y: cy, w: W, h: 2 }), { kind: 'corridor', depth: 0, name: 'Cross Passage', lane: 'cross' });
+    for (const cy of crosses) { const r = addRoom(sec, 'corridor', rectCells({ x: 0, y: cy, w: W, h: 2 }), { kind: 'corridor', depth: 0, name: 'Cross Passage', lane: 'cross' }); if (sec.kit) kitTrim(sec, r, { x: 0, y: cy, w: W, h: 2 }, false); }
+    // in kit mode the lift goes in first, so the parts are laid around it
+    const liftPlan = conn.lifts.get(f + '/' + l);
+    const placeLift = () => {
+      if (liftPlan && liftPlan.decks.includes(d)) {
+        const cells = liftPlan.cells.filter(([x, y]) => sec.hull.has(K(x, y)));
+        if (cells.length === 4) { const r = addRoom(sec, 'lift', cells, { zone: -1 }); r.name = 'Lift'; r.liftDecks = liftPlan.decks.filter(dd => liftPlan.cells.every(([x, y]) => DP.liveAt(ship, dd, f, l, x, y))); r.rect = { x: cells[0][0], y: cells[0][1], w: 2, h: 2 }; tidy(sec); }
+      }
+    };
+    if (sec.kit) placeLift();
 
     // 2. blocks between them, each split into side corridors and rooms
     const dominant = DP.sectorZone(ship, d, f, l);
@@ -177,7 +276,7 @@
         // skip blocks with no hull in them
         let any = false; for (let yy = ya; yy < yb && !any; yy++) { const r = sec.rows[yy]; if (r && r[1] > bx0 && r[0] < bx1) any = true; }
         if (!any) continue;
-        blocks.push({ id: blocks.length, rect: { x: bx0, y: ya, w: bx1 - bx0, h: yb - ya } });
+        blocks.push({ id: blocks.length, rect: { x: bx0, y: ya, w: bx1 - bx0, h: yb - ya }, spineSide: bx1 === sx ? 'E' : 'W' });
       }
     });
     const zrng = rng.fork('zones');
@@ -188,6 +287,7 @@
       const zt = zoneTypes[b.id];
       if (!zoneIndex.has(zt)) { zoneIndex.set(zt, sec.zones.length); sec.zones.push({ id: sec.zones.length, type: zt, name: DP.ZONES[zt].name, letter: String.fromCharCode(65 + sec.zones.length), blocks: [] }); }
       b.zone = zoneIndex.get(zt); sec.zones[b.zone].blocks.push(b.rect);
+      if (sec.kit) { kitTileBlock(sec, b, zt, rng.fork('kit' + b.id)); continue; }
       const hallP = ({ cargo: 0.5, hangar: 0.6, enginarium: 0.4, void: 0.4, brig: 0.3 })[zt] || 0.25;
       const bigP = ({ cargo: 0.45, hangar: 0.5, enginarium: 0.4, maintenance: 0.25, armoury: 0.15, sanctum: 0.15, void: 0.2 })[zt] || 0.06;
       const out = { leaves: [], corridors: [] };
@@ -196,13 +296,24 @@
       for (const leaf of out.leaves) addRoom(sec, 'storage', rectCells(leaf), { zone: b.zone, block: b.id });
     }
     tidy(sec);
-    // side corridors that connect to nothing become part of the rooms beside them
+    // side corridors that connect to nothing become part of the rooms beside them (in kit mode, structure)
     for (const r of sec.rooms) {
       if (r.kind !== 'corridor' || r.lane !== 'side' || !r.cells.length) continue;
       const nb = [...neighboursOf(sec, r)];
-      if (!nb.some(([o]) => sec.rooms[o].kind === 'corridor')) { const best = nb.filter(([o]) => sec.rooms[o].kind === 'room').sort((a, b) => b[1] - a[1])[0]; if (best) mergeInto(sec, r, sec.rooms[best[0]]); }
+      if (nb.some(([o]) => sec.rooms[o].kind === 'corridor')) continue;
+      if (sec.kit) { for (const [x, y] of r.cells) sec.owner[y][x] = -1; r.cells = []; r.set = new Set(); continue; }
+      const best = nb.filter(([o]) => sec.rooms[o].kind === 'room').sort((a, b) => b[1] - a[1])[0]; if (best) mergeInto(sec, r, sec.rooms[best[0]]);
     }
     tidy(sec);
+    // kit: whatever hull is left between the parts is structure, solid wall mass
+    if (sec.kit) {
+      const left = [...sec.hull].map(unK).filter(([x, y]) => sec.owner[y][x] < 0);
+      if (left.length) { const s = addRoom(sec, 'structure', left, { kind: 'structure', zone: -1 }); s.name = 'Structure'; }
+      // a part walled in by structure alone can never be reached; it becomes structure too
+      let changed = true;
+      while (changed) { changed = false; for (const r of sec.rooms) { if (!r.rect || !r.cells.length || r.type === 'lift') continue; const nb = [...neighboursOf(sec, r)].filter(([o]) => sec.rooms[o].kind !== 'structure' && sec.rooms[o].cells.length); if (!nb.length) { const s = sec.rooms.find(q => q.kind === 'structure'); if (s) mergeInto(sec, r, s); else { for (const [x, y] of r.cells) sec.owner[y][x] = -1; r.cells = []; } r.rect = null; changed = true; } } }
+      tidy(sec);
+    }
 
     // 3. exits: thoroughfare and cross passages through the borders, plus repair hatches the ship plan asked for
     for (const e of conn.exits.get(ckey) || []) {
@@ -216,13 +327,7 @@
     }
 
     // 4. lift lobby beside the thoroughfare, shared by every deck of this column where the shaft survives
-    {
-      const lift = conn.lifts.get(f + '/' + l);
-      if (lift && lift.decks.includes(d)) {
-        const cells = lift.cells.filter(([x, y]) => sec.hull.has(K(x, y)));
-        if (cells.length === 4) { const r = addRoom(sec, 'lift', cells, { zone: -1 }); r.name = 'Lift'; r.liftDecks = lift.decks.filter(dd => lift.cells.every(([x, y]) => DP.liveAt(ship, dd, f, l, x, y))); tidy(sec); }
-      }
-    }
+    if (!sec.kit) placeLift();
     // ladder squares are pinned: doors keep off them and the furnisher leaves them free
     sec.ladders = (conn.ladders.get(ckey) || []).map(L => Object.assign({}, L)).filter(L => { const dd = L.dir === 'down' ? d + 1 : d - 1; const k = K(L.x, L.y); return sec.hull.has(k) && !sec.cuts.has(k) && DP.liveAt(ship, dd, f, l, L.x, L.y) && !DP.sectorHull(ship, dd, f, l).cuts.has(k); });
     for (const L of sec.ladders) sec.pinned.add(K(L.x, L.y));
@@ -237,9 +342,11 @@
       if (cands.length) { const r = arng.pick(cands); r.type = 'airlock'; r.name = 'Airlock'; }
     }
     applyDamage(ship, sec, rng.fork('damage'));
+    if (sec.kit) assignParts(sec, rng.fork('parts'));
     connect(ship, sec, rng.fork('doors'));
     DP.furnishSector(ship, sec, rng.fork('furnish'));
     numberRooms(sec);
+    DP.buildVents(ship, sec, rng.fork('vents'));
     return sec;
   }
 
@@ -321,7 +428,7 @@
     cands.sort((a, b) => (b.spaceEdges.length > 0) - (a.spaceEdges.length > 0) || rng.next() - 0.5);
     const n = ship.cls === 'K' ? rng.int(2, 4) : rng.int(1, 2);
     for (const r of cands.slice(0, n)) { r.type = 'void'; r.name = roomName('void'); }
-    if (ship.cls === 'K') {
+    if (ship.cls === 'K' && !sec.kit) {
       const pairs = adjacency(sec).filter(([a, b, edges]) => sec.rooms[a].kind === 'room' && sec.rooms[b].kind === 'room' && sec.rooms[a].type !== 'lift' && sec.rooms[b].type !== 'lift' && edges.length >= 2);
       rng.shuffle(pairs);
       for (const [a, b, edges] of pairs.slice(0, rng.int(2, 4))) {
@@ -375,7 +482,9 @@
     let start = rng ? Math.max(0, Math.min(run.length - w, mid + rng.int(-1, 1))) : mid;
     // keep off pinned squares (ladders): try the nearest other positions along the run. A junction opening may
     // share a square with a ladder; a real door may not, and returns null when the run leaves it nowhere to go.
-    const clear = (s) => doorCells({ x: run[s].x, y: run[s].y, side: run[s].side, w }).every(([x, y]) => !sec.pinned.has(K(x, y)));
+    // In kit mode a door into a part must sit on one of the part's door slots.
+    const slotOK = ([x, y]) => { if (!sec.kit) return true; const id = (sec.owner[y] || [])[x]; if (id == null || id < 0) return true; const r = sec.rooms[id]; return !r.rect || r.type === 'lift' || sec.slots.has(K(x, y)); };
+    const clear = (s) => doorCells({ x: run[s].x, y: run[s].y, side: run[s].side, w }).every(([x, y]) => !sec.pinned.has(K(x, y)) && slotOK([x, y]));
     if (!clear(start)) { for (let k = 1; k <= run.length && !clear(start); k++) { const cand = [start - k, start + k].find(s => s >= 0 && s <= run.length - w && clear(s)); if (cand != null) start = cand; } }
     if (!clear(start) && kind !== 'join') return null;
     const e = run[start];
@@ -441,11 +550,11 @@
     };
     for (let iter = 0; iter < 400; iter++) {
       const seen = reach();
-      const missing = sec.rooms.filter(r => r.cells.length && !seen.has(r.id));
+      const missing = sec.rooms.filter(r => r.cells.length && r.kind !== 'structure' && !seen.has(r.id));
       if (!missing.length) break;
       let patched = false;
       for (const r of missing) {
-        const nbs = (byRoom.get(r.id) || []).filter(([o]) => seen.has(o) && sec.rooms[o].cells.length);
+        const nbs = (byRoom.get(r.id) || []).filter(([o]) => seen.has(o) && sec.rooms[o].cells.length && sec.rooms[o].kind !== 'structure');
         if (!nbs.length) continue;
         const score = ([o, e]) => { const ro = sec.rooms[o]; return (isCorr(o) ? 0 : PRIVATE.has(ro.type) ? 40 : ro.zone === r.zone ? 10 : 20) - Math.min(9, longestRun(e)[0].length); };
         nbs.sort((p, q) => score(p) - score(q));

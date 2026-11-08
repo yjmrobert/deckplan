@@ -19,6 +19,17 @@
   DP.SECTOR_SIZES = { xs: { name: 'Tiny (2×2 pages, 14×20)', w: 14, h: 20 }, s: { name: 'Small (3×3 pages, 21×30)', w: 21, h: 30 }, m: { name: 'Medium (4×4 pages, 28×40)', w: 28, h: 40 }, l: { name: 'Large (5×5 pages, 35×50)', w: 35, h: 50 } };
 
   DP.CONDITIONS = { intact: 'Intact', rundown: 'Rundown', derelict: 'Derelict' };
+  DP.BUILDS = { organic: 'Organic (every room unique)', kit: 'Kit (standard parts)' };
+
+  // The kit: rooms come only in these footprints (short side first; a part may be laid either way round), corridors
+  // are straights of these lengths, and each footprint has a couple of fixed furnishing variants that never change
+  // between ships. Print a part once, use it on every ship.
+  DP.KIT = {
+    footprints: [[3, 3], [3, 5], [4, 4], [4, 6], [5, 5], [5, 7], [7, 7], [7, 10], [7, 14], [10, 14]],
+    corridorLengths: [5, 3, 2, 1],
+    variants: ['A', 'B'],
+    bigZones: ['cargo', 'hangar', 'enginarium', 'maintenance', 'armoury'],
+  };
 
   // Zones: a sector is three to six of these. Pools are [type, weight, size] with size small|mid|hall|any.
   DP.ZONES = {
@@ -56,6 +67,7 @@
     cells: { name: 'Cell Block', tint: 'military' }, cell: { name: 'Cell', tint: 'military' }, interview: { name: 'Interrogation', tint: 'military' }, yard: { name: 'Exercise Yard', tint: 'military' },
     nave: { name: 'Nave', tint: 'sacred' }, shrine: { name: 'Shrine', tint: 'sacred' }, reliquary: { name: 'Reliquary', tint: 'sacred' }, scriptorium: { name: 'Scriptorium', tint: 'sacred' }, confessional: { name: 'Confessional', tint: 'sacred' }, crypt: { name: 'Crypt', tint: 'sacred' },
     airlock: { name: 'Airlock', tint: 'airlock' }, nest: { name: 'Nest', tint: 'alien' }, void: { name: 'Collapsed Section', tint: 'void' },
+    structure: { name: 'Structure', tint: 'corridor' },
   };
 
   // Floor tints for the colour renderer, by theme.

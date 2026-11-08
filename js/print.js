@@ -17,12 +17,13 @@
 
   function tileSheets(ship, sec, o) {
     const b = DP.PAPER.bleed / o.scale;
+    const vents = o.layout === 'vents';
     // pages that hold nothing but space are left out
     const pages = DP.pageTiles(sec, o.scale).pages.filter(pg => { for (let y = pg.y; y < pg.y + pg.h; y++) for (let x = pg.x; x < pg.x + pg.w; x++) if (sec.hull.has(x + ',' + y)) return true; return false; });
     return pages.map((pg, i) => {
       const clip = { x: pg.x - b, y: pg.y - b, w: pg.w + 2 * b, h: pg.h + 2 * b };
-      const svg = DP.renderSector(ship, sec, { mode: o.mode, theme: o.theme, labels: o.labels, background: o.background, clip, cut: { x: pg.x, y: pg.y, w: pg.w, h: pg.h }, widthAttr: f(clip.w * o.scale) + 'in', heightAttr: f(clip.h * o.scale) + 'in' });
-      return sheet(svg, `${sec.label} · ${ship.className} ${ship.seed} · page ${pg.label} (${i + 1} of ${pages.length}) · ${o.scale}in squares`);
+      const svg = (vents ? DP.renderVents : DP.renderSector)(ship, sec, { mode: o.mode, theme: o.theme, labels: o.labels, background: o.background, clip, cut: { x: pg.x, y: pg.y, w: pg.w, h: pg.h }, widthAttr: f(clip.w * o.scale) + 'in', heightAttr: f(clip.h * o.scale) + 'in' });
+      return sheet(svg, `${sec.label}${vents ? ' vents' : ''} · ${ship.className} ${ship.seed} · page ${pg.label} (${i + 1} of ${pages.length}) · ${o.scale}in squares`);
     }).join('\n');
   }
 
@@ -76,6 +77,7 @@
     if (r.type === 'lift') notes.push('lift to deck' + (r.liftDecks && r.liftDecks.length > 1 ? 's ' : ' ') + (r.liftDecks ? r.liftDecks.filter(x => x !== sec.d).map(x => x + 1).join(', ') : '?'));
     if (r.spaceEdges && r.spaceEdges.some(e => e.torn)) notes.push('open to a torn section');
     if (r.collapsed) notes.push('collapsed wall');
+    if (r.grille) notes.push('vent grille');
     const doorsTo = mine.filter(d => d.b >= 0).map(d => sec.rooms[d.a === r.id ? d.b : d.a]).filter(o => o.kind === 'room' && o.number).map(o => o.number);
     if (doorsTo.length) notes.push('doors to ' + doorsTo.sort((a, b) => a - b).join(', '));
     return notes.join('; ');
@@ -95,10 +97,18 @@
 <h3>Between decks</h3><ul>${[...(sec.rooms.filter(r => r.type === 'lift' && r.cells.length).map(r => 'Lift in room ' + r.number + ' serving decks ' + (r.liftDecks || []).map(x => x + 1).join(', '))), ...sec.ladders.map(L => 'Ladder ' + L.dir + ' to deck ' + (L.dir === 'up' ? sec.d : sec.d + 2) + (L.repair ? ' (through the damage)' : '') + ' near square ' + ((L.px != null ? L.px : L.x) + 1) + ',' + ((L.py != null ? L.py : L.y) + 1))].map(t => '<li>' + esc(t) + '</li>').join('') || '<li>None</li>'}</ul>
 <h3>Rooms</h3>
 <table><thead><tr><th>#</th><th>Room</th><th>Zone</th><th>Size</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table>
+${DP.ventsKeyHTML(ship, sec)}
 </div>`;
   };
+  // the vent layer's entry points, and where each one crawls to
+  DP.ventsKeyHTML = function (ship, sec) {
+    const V = sec.vents; if (!V || !V.ports.length) return '';
+    const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+    const items = V.ports.map(p => { const to = p.links.slice(0, 3).map(L => DP.ventPortName(sec, L.to) + ' (' + L.dist + ' sq)').join(', '); return `<li>${esc(cap(DP.ventPortName(sec, p)))} at ${p.x + 1},${p.y + 1}${to ? ' → ' + esc(to) : ' — a dead end'}</li>`; });
+    return `<h3>Vents</h3><p class="meta">${V.cells.size} squares of crawlway. Grilles open into the rooms named; shafts climb to the deck named.</p><ul class="vents">${items.join('')}</ul>`;
+  };
 
-  // o: { layout 'tiles'|'rooms', scale, mode, theme, labels, background, key }
+  // o: { layout 'tiles'|'rooms'|'vents', scale, mode, theme, labels, background, key }
   DP.buildPrint = function (ship, sec, o) {
     const sheets = o.layout === 'rooms' ? roomSheets(ship, sec, o) : tileSheets(ship, sec, o);
     const key = o.key ? sheet(DP.keyHTML(ship, sec, o), `${sec.label} · key`, 'sheet-key') : '';

@@ -62,6 +62,7 @@
       case 'egg': case 'cocoon': return `<ellipse cx="0.5" cy="0.52" rx="0.3" ry="0.38" ${P.alien}/>` + (p.t === 'cocoon' ? L(0.3, 0.3, 0.7, 0.75, P.thin) : '');
       case 'forklift': return R(0.2, 0.7, 0.6, 1.1) + L(0.3, 0.1, 0.3, 0.7) + L(0.7, 0.1, 0.7, 0.7) + C(0.5, 1.25, 0.12, acc2);
       case 'vent': return R(0.15, 0.1, 0.7, 0.6) + L(0.25, 0.25, 0.75, 0.25, P.thin) + L(0.25, 0.4, 0.75, 0.4, P.thin) + L(0.25, 0.55, 0.75, 0.55, P.thin);
+      case 'grille': return R(0.1, 0.1, 0.8, 0.8, P.hatch) + R(0.1, 0.1, 0.8, 0.8, P.outline) + L(0.1, 0.3, 0.9, 0.3, P.thin) + L(0.1, 0.5, 0.9, 0.5, P.thin) + L(0.1, 0.7, 0.9, 0.7, P.thin) + L(0.3, 0.1, 0.3, 0.9, P.thin) + L(0.7, 0.1, 0.7, 0.9, P.thin);
       case 'reliquary': return `<path d="M0.5 0.1 L0.9 0.5 L0.5 0.9 L0.1 0.5Z" ${P.box}/>` + C(0.5, 0.5, 0.15, acc2);
       case 'scanner': return R(0.15, 0.15, w - 0.3, h - 0.3, P.white) + C(w / 2, h / 2, 0.7) + C(w / 2, h / 2, 0.45, acc) + R(0.4, h / 2 - 0.3, w - 0.8, 0.6, P.soft);
       default: return R(0.12, 0.12, w - 0.24, h - 0.24);
@@ -223,6 +224,67 @@
     }
     if (opts.cut) out.push(`<rect x="${f(opts.cut.x)}" y="${f(opts.cut.y)}" width="${f(opts.cut.w)}" height="${f(opts.cut.h)}" fill="none" stroke="#000" stroke-width="0.02" stroke-dasharray="0.25 0.12"/>`);
     // page overlay
+    if (opts.pages) for (const pg of opts.pages) out.push(`<rect x="${f(pg.x)}" y="${f(pg.y)}" width="${f(pg.w)}" height="${f(pg.h)}" fill="none" stroke="${T.accent2}" stroke-width="0.08" stroke-dasharray="0.4 0.25"/><text x="${f(pg.x + 0.3)}" y="${f(pg.y + 0.9)}" font-size="0.8" font-weight="700" fill="${T.accent2}" opacity="0.85">${pg.label}</text>`);
+    out.push('</svg>');
+    return out.join('\n');
+  };
+
+  // ---- the vent layer ------------------------------------------------------------------------
+  // Same frame, clip and page conventions as renderSector, so it tiles onto the same pages.
+  // opts.ghost (default true) draws the rooms below as faint outlines so the two maps can be laid over each other.
+  DP.renderVents = function (ship, sec, opts) {
+    opts = opts || {};
+    const V = sec.vents;
+    const mode = opts.mode || 'color';
+    const T = DP.THEMES[opts.theme] || DP.THEMES.fleet;
+    const clip = opts.clip || { x: -0.5, y: -0.5, w: sec.W + 1, h: sec.H + 1 };
+    const sizeAttr = (opts.widthAttr ? `width="${opts.widthAttr}" height="${opts.heightAttr}"` : '');
+    const plan = mode === 'plan';
+    const ink = plan ? '#000' : T.wallEdge, ductFill = plan ? '#ffffff' : T.tints.corridor, ghostInk = plan ? '#9a9a9a' : 'rgba(255,255,255,0.22)';
+    const out = [];
+    out.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${f(clip.x)} ${f(clip.y)} ${f(clip.w)} ${f(clip.h)}" ${sizeAttr} font-family="'IBM Plex Sans Condensed','Arial Narrow',Arial,sans-serif">`);
+    out.push(`<defs>
+<pattern id="vgrid" width="1" height="1" patternUnits="userSpaceOnUse"><path d="M1 0 L0 0 0 1" fill="none" stroke="${plan ? '#c8c8c8' : T.grid}" stroke-width="0.03"/></pattern>
+<pattern id="vgrate" width="0.25" height="0.25" patternUnits="userSpaceOnUse"><rect width="0.25" height="0.25" fill="${plan ? '#fff' : T.propFill}"/><line x1="0" y1="0.125" x2="0.25" y2="0.125" stroke="${ink}" stroke-width="0.06"/></pattern>
+<pattern id="vhazard" width="0.4" height="0.4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="0.4" height="0.4" fill="${plan ? '#fff' : T.hazard}"/><rect width="0.2" height="0.4" fill="${plan ? '#000' : '#1a1a1a'}"/></pattern>
+</defs>`);
+    const bg = opts.background || 'space';
+    if (bg !== 'none') out.push(`<rect x="${f(clip.x)}" y="${f(clip.y)}" width="${f(clip.w)}" height="${f(clip.h)}" fill="${plan || bg === 'white' ? '#ffffff' : T.space}"/>`);
+    // the deck below, as a ghost: hull, room outlines and numbers
+    const hullPath = DP.traceLoops(sec.hull, sec.cuts).map(DP.loopPath).join(' ');
+    out.push(`<path d="${hullPath}" fill="${plan ? '#f2f2f2' : 'rgba(255,255,255,0.05)'}" fill-rule="evenodd" stroke="${plan ? '#777' : T.hull}" stroke-width="0.3" stroke-linejoin="round" opacity="${plan ? 1 : 0.7}"/>`);
+    if (opts.ghost !== false) {
+      const segs = [];
+      for (const r of sec.rooms) { if (!r.cells.length) continue; for (const loop of DP.traceLoops(r.set, sec.cuts)) segs.push(DP.loopPath(loop)); }
+      out.push(`<path d="${segs.join(' ')}" fill="none" stroke="${ghostInk}" stroke-width="0.06" stroke-dasharray="0.3 0.2"/>`);
+      for (const r of sec.rooms) { if (!r.cells.length || !r.number || !r.labelCell) continue; const [lx, ly] = r.labelCell; out.push(`<text x="${f(lx + 0.5)}" y="${f(ly + 0.68)}" text-anchor="middle" font-size="0.5" font-weight="600" fill="${ghostInk}">${r.number}</text>`); }
+    }
+    // the ducts
+    const dpath = DP.traceLoops(V.cells).map(DP.loopPath).join(' ');
+    out.push(`<path d="${dpath}" fill="${ductFill}" fill-rule="evenodd"/><path d="${dpath}" fill="url(#vgrid)" fill-rule="evenodd"/>`);
+    if (plan) out.push(`<path d="${dpath}" fill="none" stroke="#000" stroke-width="0.12" stroke-linejoin="round"/>`);
+    else out.push(`<path d="${dpath}" fill="none" stroke="${T.wallEdge}" stroke-width="0.2" stroke-linejoin="round"/><path d="${dpath}" fill="none" stroke="${T.wall}" stroke-width="0.08" stroke-linejoin="round"/>`);
+    // ports
+    const halo = plan ? '#fff' : 'rgba(0,0,0,0.75)', textInk = plan ? '#000' : T.textOnDark;
+    for (const p of V.ports) {
+      const cx = p.x + 0.5, cy = p.y + 0.5;
+      if (p.kind === 'grille') {
+        const r = sec.rooms[p.room]; const label = r.kind === 'corridor' ? 'C' : String(r.number);
+        out.push(`<rect x="${f(p.x + 0.08)}" y="${f(p.y + 0.08)}" width="0.84" height="0.84" fill="url(#vgrate)" stroke="${ink}" stroke-width="0.05"/>`);
+        out.push(`<circle cx="${f(cx)}" cy="${f(cy)}" r="0.32" fill="#fff" stroke="${ink}" stroke-width="0.04"/><text x="${f(cx)}" y="${f(cy + 0.14)}" text-anchor="middle" font-size="${label.length > 2 ? 0.28 : 0.38}" font-weight="700" fill="#000">${esc(label)}</text>`);
+      } else if (p.kind === 'shaft') {
+        out.push(`<circle cx="${f(cx)}" cy="${f(cy)}" r="0.42" fill="url(#vhazard)" stroke="${ink}" stroke-width="0.05"/><circle cx="${f(cx)}" cy="${f(cy)}" r="0.22" fill="${plan ? '#fff' : T.space}" stroke="${ink}" stroke-width="0.04"/>`);
+        if (p.up) out.push(`<path d="M${f(cx)} ${f(cy - 0.18)} L${f(cx + 0.12)} ${f(cy - 0.02)} L${f(cx - 0.12)} ${f(cy - 0.02)}Z" fill="${ink}"/><text x="${f(cx)}" y="${f(cy - 0.62)}" text-anchor="middle" font-size="0.3" font-weight="700" fill="${textInk}" stroke="${halo}" stroke-width="0.08" paint-order="stroke">D${sec.d}</text>`);
+        if (p.down) out.push(`<path d="M${f(cx)} ${f(cy + 0.18)} L${f(cx + 0.12)} ${f(cy + 0.02)} L${f(cx - 0.12)} ${f(cy + 0.02)}Z" fill="${ink}"/><text x="${f(cx)}" y="${f(cy + 0.88)}" text-anchor="middle" font-size="0.3" font-weight="700" fill="${textInk}" stroke="${halo}" stroke-width="0.08" paint-order="stroke">D${sec.d + 2}</text>`);
+      } else {
+        let x, y, rot = 0; const s = p.side;
+        if (s === 'N') { x = cx; y = 2.6; rot = -90; } else if (s === 'S') { x = cx; y = sec.H - 2.6; rot = -90; } else if (s === 'W') { x = 2.6; y = cy; } else { x = sec.W - 2.6; y = cy; }
+        const arrow = s === 'N' || s === 'W' ? -1 : 1; const last = p.cells[p.cells.length - 1]; const ax = last[0] + 0.5, ay = last[1] + 0.5;
+        const tip = s === 'N' || s === 'S' ? `M${f(ax - 0.25)} ${f(ay - arrow * 0.15)} L${f(ax)} ${f(ay + arrow * 0.3)} L${f(ax + 0.25)} ${f(ay - arrow * 0.15)}` : `M${f(ax - arrow * 0.15)} ${f(ay - 0.25)} L${f(ax + arrow * 0.3)} ${f(ay)} L${f(ax - arrow * 0.15)} ${f(ay + 0.25)}`;
+        out.push(`<g class="exit" data-side="${s}" style="cursor:pointer"><path d="${tip}" fill="none" stroke="${plan ? '#000' : T.accent}" stroke-width="0.1"/><text x="${f(x)}" y="${f(y + 0.1)}" transform="rotate(${rot} ${f(x)} ${f(y)})" text-anchor="middle" font-size="0.3" font-weight="700" fill="${textInk}" stroke="${halo}" stroke-width="0.08" paint-order="stroke">${esc('duct to ' + p.to)}</text></g>`);
+      }
+    }
+    if (opts.cut) out.push(`<rect x="${f(opts.cut.x)}" y="${f(opts.cut.y)}" width="${f(opts.cut.w)}" height="${f(opts.cut.h)}" fill="none" stroke="#000" stroke-width="0.02" stroke-dasharray="0.25 0.12"/>`);
     if (opts.pages) for (const pg of opts.pages) out.push(`<rect x="${f(pg.x)}" y="${f(pg.y)}" width="${f(pg.w)}" height="${f(pg.h)}" fill="none" stroke="${T.accent2}" stroke-width="0.08" stroke-dasharray="0.4 0.25"/><text x="${f(pg.x + 0.3)}" y="${f(pg.y + 0.9)}" font-size="0.8" font-weight="700" fill="${T.accent2}" opacity="0.85">${pg.label}</text>`);
     out.push('</svg>');
     return out.join('\n');

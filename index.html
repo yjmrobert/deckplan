@@ -34,7 +34,7 @@
   <label><span>Zoom</span><input id="zoom" type="range" min="8" max="40" value="18"></label>
 
   <h3>Print and export</h3>
-  <label><span>Layout</span><select id="playout"><option value="tiles">Whole sector, tiled pages</option><option value="rooms">Room by room pieces</option></select></label>
+  <label><span>Layout</span><select id="playout"><option value="tiles">Whole sector, tiled pages</option><option value="rooms">Room by room pieces</option><option value="vents">Vent layer, tiled pages</option></select></label>
   <label><span>Square size</span><select id="pscale"></select></label>
   <label><span>Background</span><select id="pbg"><option value="white">White (saves ink)</option><option value="space">Space black</option></select></label>
   <label><span>Key page</span><input id="pkey" type="checkbox" checked></label>
@@ -46,7 +46,7 @@
 </aside>
 
 <main class="map-wrap">
-  <div class="toolbar"><span class="label">Sector</span><b id="seclabel"></b><span class="label" id="secmeta"></span><span class="grow"></span><button id="prevdeck" title="Deck above">▲ deck</button><button id="nextdeck" title="Deck below">▼ deck</button></div>
+  <div class="toolbar"><span class="label">Sector</span><b id="seclabel"></b><span class="label" id="secmeta"></span><span class="grow"></span><span class="layers"><button id="layer-deck" title="The deck itself">Deck</button><button id="layer-vents" title="The crawlways above it">Vents</button></span><button id="prevdeck" title="Deck above">▲ deck</button><button id="nextdeck" title="Deck below">▼ deck</button></div>
   <div id="map"></div>
 </main>
 
@@ -59,6 +59,7 @@
 <script src="js/geom.js"></script>
 <script src="js/layout.js"></script>
 <script src="js/furnish.js"></script>
+<script src="js/vents.js"></script>
 <script src="js/render.js"></script>
 <script src="js/print.js"></script>
 <script src="js/app.js"></script>

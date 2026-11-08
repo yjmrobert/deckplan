@@ -2,7 +2,7 @@
 (function () {
   const DP = globalThis.DP;
   const $ = (id) => document.getElementById(id);
-  const DEFAULTS = { s: '', c: 'W', z: 'm', k: 'intact', d: 1, f: 1, l: 1, m: 'color', t: 'fleet', n: 'numbers' };
+  const DEFAULTS = { s: '', c: 'W', z: 'm', k: 'intact', d: 1, f: 1, l: 1, m: 'color', t: 'fleet', n: 'numbers', v: 0 };
   let state = Object.assign({}, DEFAULTS);
   let ship = null, sec = null, cache = new Map();
 
@@ -10,7 +10,7 @@
     const h = location.hash.replace(/^#/, '');
     const q = new URLSearchParams(h);
     for (const k of Object.keys(DEFAULTS)) if (q.has(k)) state[k] = q.get(k);
-    ['d', 'f', 'l'].forEach(k => state[k] = parseInt(state[k], 10) || 0);
+    ['d', 'f', 'l', 'v'].forEach(k => state[k] = parseInt(state[k], 10) || 0);
     if (!state.s) state.s = DP.newSeed();
   }
   function writeHash() {
@@ -42,8 +42,9 @@
     $('seed').value = state.s; $('cls').value = state.c; $('size').value = state.z; $('condition').value = state.k; $('mode').value = state.m; $('theme').value = state.t; $('labels').value = state.n;
     $('condition').disabled = !!ship.C.forceCondition;
     const zoom = +$('zoom').value;
-    $('map').innerHTML = DP.renderSector(ship, sec, renderOpts({ widthAttr: (sec.W + 1) * zoom + 'px', heightAttr: (sec.H + 1) * zoom + 'px' }));
-    $('seclabel').textContent = sec.label;
+    $('map').innerHTML = (state.v ? DP.renderVents : DP.renderSector)(ship, sec, renderOpts({ widthAttr: (sec.W + 1) * zoom + 'px', heightAttr: (sec.H + 1) * zoom + 'px' }));
+    $('layer-deck').className = state.v ? '' : 'current'; $('layer-vents').className = state.v ? 'current' : '';
+    $('seclabel').textContent = sec.label + (state.v ? ' vents' : '');
     $('secmeta').textContent = `· ${ship.className} · deck ${sec.d + 1} of ${ship.D} · ${sec.zones.map(z => z.name).join(', ')}`;
     $('keypanel').innerHTML = DP.keyHTML(ship, sec, {});
     renderOverview();
@@ -75,7 +76,7 @@
 
   // ---- export -----------------------------------------------------------------
   function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
-  function fullSVG() { return DP.renderSector(ship, sec, renderOpts({ widthAttr: (sec.W + 1) * 100 + 'px', heightAttr: (sec.H + 1) * 100 + 'px', pages: null })); }
+  function fullSVG() { return (state.v ? DP.renderVents : DP.renderSector)(ship, sec, renderOpts({ widthAttr: (sec.W + 1) * 100 + 'px', heightAttr: (sec.H + 1) * 100 + 'px', pages: null })); }
   function exportPNG() {
     const svg = fullSVG();
     const img = new Image();
@@ -106,6 +107,8 @@
     ['zones', 'pagegrid'].forEach(id => $(id).addEventListener('change', renderAll));
     $('pscale').addEventListener('change', renderAll);
     $('zoom').addEventListener('input', renderAll);
+    $('layer-deck').onclick = () => { state.v = 0; writeHash(); renderAll(); };
+    $('layer-vents').onclick = () => { state.v = 1; writeHash(); renderAll(); };
     $('prevdeck').onclick = () => go(state.d - 1, state.f, state.l);
     $('nextdeck').onclick = () => go(state.d + 1, state.f, state.l);
     $('print').onclick = doPrint; $('png').onclick = exportPNG; $('svg').onclick = exportSVG;

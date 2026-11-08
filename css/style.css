@@ -31,6 +31,12 @@ button.warm { background: var(--accent2); color: #2a1800; border-color: var(--ac
 .toolbar .grow { flex: 1; }
 .toolbar .label { color: var(--muted); }
 .toolbar b { color: var(--accent2); }
+.toolbar .layers { display: inline-flex; gap: 0; margin-right: 8px; }
+.toolbar .layers button { border-radius: 0; }
+.toolbar .layers button:first-child { border-radius: 4px 0 0 4px; }
+.toolbar .layers button:last-child { border-radius: 0 4px 4px 0; }
+.toolbar .layers button.current { background: var(--accent2); color: #2a1800; border-color: var(--accent2); font-weight: 700; }
+.key ul.vents { font-size: 11px; color: var(--muted); }
 .overview { margin: 6px 0; }
 .ovsvg { width: 100%; display: block; }
 .ovsvg .hull { fill: #2b3440; stroke: #8c98a4; stroke-width: 1.5; stroke-linejoin: round; }

@@ -1,9 +1,9 @@
 // Node smoke test: build many sectors and check the invariants the renderer relies on.
 const fs = require('fs'), vm = require('vm'), path = require('path');
 globalThis.DP = {};
-for (const f of ['rng', 'data', 'hull', 'geom', 'layout', 'furnish']) vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'js', f + '.js'), 'utf8'), { filename: f + '.js' });
+for (const f of ['rng', 'data', 'hull', 'geom', 'layout', 'furnish', 'vents']) vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'js', f + '.js'), 'utf8'), { filename: f + '.js' });
 const DP = globalThis.DP;
-let fails = 0, built = 0, stats = { rooms: 0, doors: 0, props: 0, sealed: 0, deadRooms: 0, exits: 0, repairs: 0, voids: 0, ladders: 0, nudged: 0 };
+let fails = 0, built = 0, stats = { rooms: 0, doors: 0, props: 0, sealed: 0, deadRooms: 0, exits: 0, repairs: 0, voids: 0, ladders: 0, nudged: 0, ventCells: 0, grilles: 0, shafts: 0, ventCross: 0, ventDeadEnds: 0 };
 const seeds = process.argv[2] ? [process.argv[2]] : ['ALPHA1', 'BRAVO2', 'CHRLY3', 'DELTA4', 'ECHO55', 'FXTROT'];
 const sizes = process.argv[3] ? process.argv[3].split(',') : ['xs', 's', 'm', 'l'];
 for (const seed of seeds) for (const cls of DP.CLASS_ORDER) for (const size of sizes) for (const cond of ['intact', 'derelict']) {
@@ -61,6 +61,17 @@ for (const seed of seeds) for (const cls of DP.CLASS_ORDER) for (const size of s
       if (!sec.props.some(p => p.t === 'ladder' && (p.dir === L.dir || p.dir === 'both'))) { console.log('LADDER NOT PLACED', seed, cls, size, cond, d, f, l, L); fails++; }
       else if (!L.repair && (L.px !== L.x || L.py !== L.y)) { console.log('LADDER NUDGED', seed, cls, size, cond, d, f, l, L); fails++; }
       else if (L.repair && (L.px !== L.x || L.py !== L.y)) stats.nudged++;
+    }
+    // vents: grilles sit on the maze inside their room, shafts and crossings have their twin, ports lead somewhere
+    const V = sec.vents;
+    stats.ventCells += V.cells.size; stats.grilles += V.grilles.length; stats.shafts += V.shafts.length; stats.ventCross += V.crossings.length;
+    for (const p of V.ports) {
+      const k = p.x + ',' + p.y;
+      if (!V.cells.has(k)) { console.log('VENT PORT OFF MAZE', seed, cls, size, cond, d, f, l, p.kind, k); fails++; }
+      if (p.kind === 'grille' && (sec.owner[p.y][p.x] !== p.room || !sec.props.some(q => q.t === 'grille' && q.x === p.x && q.y === p.y))) { console.log('GRILLE MISPLACED', seed, cls, size, cond, d, f, l, k); fails++; }
+      if (p.kind === 'shaft') for (const [flag, dd, back] of [[p.up, d - 1, 'down'], [p.down, d + 1, 'up']]) { if (!flag) continue; const other = build(dd, f, l); if (!other.vents.shafts.some(s => s.x === p.x && s.y === p.y && s[back])) { console.log('SHAFT MISMATCH', seed, cls, size, cond, d, f, l, k, '->', dd); fails++; } }
+      if (p.kind === 'cross') { const nf = p.side === 'N' ? f - 1 : p.side === 'S' ? f + 1 : f, nl = p.side === 'W' ? l - 1 : p.side === 'E' ? l + 1 : l; const opp = { N: 'S', S: 'N', W: 'E', E: 'W' }[p.side]; if (!build(d, nf, nl).vents.crossings.some(c => c.side === opp && c.t === p.t)) { console.log('VENT CROSSING MISMATCH', seed, cls, size, cond, d, f, l, p.side, p.t); fails++; } }
+      if (!p.links.length && V.ports.length > 1) stats.ventDeadEnds++;
     }
     const lift = sec.rooms.find(r => r.type === 'lift' && r.cells.length);
     if (lift) for (const dd of lift.liftDecks) { if (dd === d) continue; const other = build(dd, f, l); const ol = other.rooms.find(r => r.type === 'lift' && r.cells.length); if (!ol || ol.bbox.x0 !== lift.bbox.x0 || ol.bbox.y0 !== lift.bbox.y0) { console.log('LIFT MISMATCH', seed, cls, size, cond, d, f, l, dd); fails++; } }
