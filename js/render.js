@@ -132,8 +132,9 @@
   }
 
   // ---- main ---------------------------------------------------------------------
-  // opts: mode 'color'|'plan', theme, labels 'numbers'|'names'|'both'|'none', background 'space'|'white'|'none',
-  //       clip {x,y,w,h} in squares, rooms Set(ids) or null, widthAttr/heightAttr strings, pages [{x,y,w,h,label}], zones bool
+  // opts: mode 'color'|'plan', theme, labels 'numbers'|'names'|'both'|'parts'|'none', background 'space'|'white'|'none',
+  //       clip {x,y,w,h} in squares, rooms Set(ids) or null, widthAttr/heightAttr strings, pages [{x,y,w,h,label}], zones bool,
+  //       plain bool (a loose part: every edge is an ordinary wall, no exits)
   DP.renderSector = function (ship, sec, opts) {
     opts = opts || {};
     const mode = opts.mode || 'color';
@@ -169,13 +170,14 @@
     // floors
     const loopsOf = new Map();
     for (const r of sec.rooms) { if (!show(r)) continue; const loops = DP.traceLoops(r.set, sec.cuts); loopsOf.set(r.id, loops); const d = loops.map(DP.loopPath).join(' ');
+      if (r.kind === 'structure') { out.push(`<path d="${d}" fill="${mode === 'plan' ? 'url(#hatch)' : T.wall}" fill-rule="evenodd"/>`); if (mode === 'plan') out.push(`<path d="${d}" fill="none" stroke="#000" stroke-width="0.05"/>`); continue; }
       out.push(`<path d="${d}" fill="${tint(r)}" fill-rule="evenodd"/>`);
       if (r.type === 'void') out.push(`<path d="${d}" fill="url(#voidfill)" fill-rule="evenodd"/>`);
       if (opts.grid !== false) out.push(`<path d="${d}" fill="url(#grid)" fill-rule="evenodd"/>`);
       if (r.type === 'lift') { const b = r.bbox; out.push(`<rect x="${f(b.x0 + 0.2)}" y="${f(b.y0 + 0.2)}" width="${f(b.w - 0.4)}" height="${f(b.h - 0.4)}" fill="none" stroke="${mode === 'plan' ? '#000' : T.accent}" stroke-width="0.06" stroke-dasharray="0.2 0.1"/><text x="${f(b.x0 + b.w / 2)}" y="${f(b.y0 + b.h / 2 + 0.12)}" text-anchor="middle" font-size="0.4" font-weight="700" fill="${mode === 'plan' ? '#000' : T.textOnDark}">LIFT</text>` + (r.liftDecks ? `<text x="${f(b.x0 + b.w / 2)}" y="${f(b.y0 + b.h / 2 + 0.5)}" text-anchor="middle" font-size="0.24" fill="${mode === 'plan' ? '#000' : T.textOnDark}">D${r.liftDecks[0] + 1}–D${r.liftDecks[r.liftDecks.length - 1] + 1}</text>` : '')); }
     }
     // zone overlay for the key
-    if (opts.zones) for (const z of sec.zones) out.push(`<rect x="${f(z.rect.x + 0.15)}" y="${f(z.rect.y + 0.15)}" width="${f(z.rect.w - 0.3)}" height="${f(z.rect.h - 0.3)}" fill="none" stroke="${T.accent2}" stroke-width="0.12" stroke-dasharray="0.6 0.3" opacity="0.8"/><text x="${f(z.rect.x + 0.5)}" y="${f(z.rect.y + 1.1)}" font-size="0.9" font-weight="700" fill="${T.accent2}" opacity="0.9">${z.letter}</text>`);
+    if (opts.zones) for (const z of sec.zones) for (const rc of z.blocks) out.push(`<rect x="${f(rc.x + 0.15)}" y="${f(rc.y + 0.15)}" width="${f(rc.w - 0.3)}" height="${f(rc.h - 0.3)}" fill="none" stroke="${T.accent2}" stroke-width="0.12" stroke-dasharray="0.6 0.3" opacity="0.8"/><text x="${f(rc.x + 0.5)}" y="${f(rc.y + 1.1)}" font-size="0.9" font-weight="700" fill="${T.accent2}" opacity="0.9">${z.letter}</text>`);
     // decor, then props
     for (const d of sec.decor) if (!only || only.has(d.room)) out.push(decorBody(d, mode, T));
     for (const p of sec.props) {
@@ -186,7 +188,7 @@
     // walls
     const wallEdge = mode === 'plan' ? '#000' : T.wallEdge, wallFace = mode === 'plan' ? '#000' : T.wall;
     const ox = sec.l * sec.W, oy = sec.f * sec.H;
-    const cls = (e) => { const hk = DP.hullKind(ship, sec.d, ox + e.nx, oy + e.ny); if (hk === 2) return 'torn'; if (e.diag || hk === 0) return 'hull'; const outside = e.nx < 0 || e.ny < 0 || e.nx >= sec.W || e.ny >= sec.H; if (!outside && !sec.hull.has(K(e.nx, e.ny))) return 'torn'; return outside ? 'section' : 'wall'; };
+    const cls = opts.plain ? () => 'wall' : (e) => { const hk = DP.hullKind(ship, sec.d, ox + e.nx, oy + e.ny); if (hk === 2) return 'torn'; if (e.diag || hk === 0) return 'hull'; const outside = e.nx < 0 || e.ny < 0 || e.nx >= sec.W || e.ny >= sec.H; if (!outside && !sec.hull.has(K(e.nx, e.ny))) return 'torn'; return outside ? 'section' : 'wall'; };
     const segs = { wall: [], section: [], hull: [], torn: [] };
     for (const r of sec.rooms) { if (!show(r)) continue; for (const loop of loopsOf.get(r.id)) for (const run of DP.mergeRuns(loop, cls)) segs[run.cls].push(`M${run.x1} ${run.y1}L${run.x2} ${run.y2}`); }
     const widths = { wall: [0.22, 0.12], section: [0.34, 0.2], hull: [0.55, 0.36], torn: [0.4, 0.22] };
@@ -219,8 +221,10 @@
     if (labels !== 'none') for (const r of sec.rooms) {
       if (!show(r) || r.kind !== 'room' || !r.number || !r.labelCell) continue;
       const [lx, ly] = r.labelCell; const cx = lx + 0.5, cy = ly + 0.5;
-      if (labels === 'numbers' || labels === 'both') out.push(`<circle cx="${f(cx)}" cy="${f(cy)}" r="0.34" fill="${mode === 'plan' ? '#fff' : '#ffffff'}" stroke="${mode === 'plan' ? '#000' : T.wallEdge}" stroke-width="0.04"/><text x="${f(cx)}" y="${f(cy + 0.15)}" text-anchor="middle" font-size="${r.number >= 100 ? 0.3 : 0.42}" font-weight="700" fill="#000">${r.number}</text>`);
+      if (labels !== 'names') out.push(`<circle cx="${f(cx)}" cy="${f(cy)}" r="0.34" fill="${mode === 'plan' ? '#fff' : '#ffffff'}" stroke="${mode === 'plan' ? '#000' : T.wallEdge}" stroke-width="0.04"/><text x="${f(cx)}" y="${f(cy + 0.15)}" text-anchor="middle" font-size="${r.number >= 100 ? 0.3 : 0.42}" font-weight="700" fill="#000">${r.number}</text>`);
       if (labels === 'names' || labels === 'both') { const dy = labels === 'both' ? 0.75 : 0.12; out.push(`<text x="${f(cx)}" y="${f(cy + dy)}" text-anchor="middle" font-size="0.32" font-weight="600" fill="${mode === 'plan' ? '#000' : T.textOnDark}" stroke="${mode === 'plan' ? '#fff' : 'rgba(0,0,0,0.6)'}" stroke-width="0.08" paint-order="stroke">${esc(r.name)}</text>`); }
+      // part code and whether the part is laid turned a quarter
+      if (labels === 'parts' && r.part) out.push(`<text x="${f(cx)}" y="${f(cy + 0.78)}" text-anchor="middle" font-size="0.3" font-weight="700" fill="${mode === 'plan' ? '#000' : T.textOnDark}" stroke="${mode === 'plan' ? '#fff' : 'rgba(0,0,0,0.6)'}" stroke-width="0.08" paint-order="stroke">${esc(r.part.code + (r.part.rot ? ' ↻' : ''))}</text>`);
     }
     if (opts.cut) out.push(`<rect x="${f(opts.cut.x)}" y="${f(opts.cut.y)}" width="${f(opts.cut.w)}" height="${f(opts.cut.h)}" fill="none" stroke="#000" stroke-width="0.02" stroke-dasharray="0.25 0.12"/>`);
     // page overlay

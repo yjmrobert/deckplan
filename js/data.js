@@ -24,11 +24,23 @@
   // The kit: rooms come only in these footprints (short side first; a part may be laid either way round), corridors
   // are straights of these lengths, and each footprint has a couple of fixed furnishing variants that never change
   // between ships. Print a part once, use it on every ship.
+  // Parts are footprint × style: a style is a family of rooms that share one classic furnishing (every cargo
+  // room prints as the Cargo part of its size; the key says which one is the hold and which the cold store).
   DP.KIT = {
     footprints: [[3, 3], [3, 5], [4, 4], [4, 6], [5, 5], [5, 7], [7, 7], [7, 10], [7, 14], [10, 14]],
     corridorLengths: [5, 3, 2, 1],
-    variants: ['A', 'B'],
+    variants: ['A', 'B'], variantFrom: 35,   // a second variant only for parts of this many squares or more
     bigZones: ['cargo', 'hangar', 'enginarium', 'maintenance', 'armoury'],
+    // style by floor tint: the recipe for a small part and for a hall (36 squares and up)
+    styles: {
+      command: { name: 'Command', small: 'office', hall: 'bridge' }, living: { name: 'Quarters', small: 'cabin', hall: 'barracks' },
+      mess: { name: 'Mess', small: 'galley', hall: 'mess' }, utility: { name: 'Utility', small: 'workshop', hall: 'machinehall' },
+      cargo: { name: 'Cargo', small: 'storage', hall: 'hold' }, engineering: { name: 'Engineering', small: 'generator', hall: 'reactor' },
+      medical: { name: 'Medical', small: 'medbay', hall: 'ward' }, science: { name: 'Science', small: 'lab', hall: 'hydro' },
+      military: { name: 'Military', small: 'armory', hall: 'weapons' }, sacred: { name: 'Sacred', small: 'shrine', hall: 'nave' },
+      airlock: { name: 'Airlock', small: 'airlock', hall: 'airlock' }, alien: { name: 'Nest', small: 'nest', hall: 'nest' },
+      void: { name: 'Wreck', small: 'void', hall: 'void' }, corridor: { name: 'Corridor', small: 'corridor', hall: 'corridor' },
+    },
   };
 
   // Zones: a sector is three to six of these. Pools are [type, weight, size] with size small|mid|hall|any.

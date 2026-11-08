@@ -187,10 +187,52 @@
 
   function furnishCorridor(sec, room, rng, occ, api) {
     const width = Math.min(room.bbox.w, room.bbox.h);
+    if (sec.kit) return;   // kit corridors are plain straights
     if (room.type === 'passage') { api.decor('chevron', Math.max(1, Math.round(room.cells.length / 6)), { r: 0.4 }); return; }
     if (width >= 2) api.scatter('crate', Math.round(room.cells.length / 40));
     if (width >= 3) api.pillars(3);
     if (width >= 2 && room.depth === 0) api.decor('chevron', Math.round(room.cells.length / 12), { r: 0.4 });
+  }
+
+  // ---- kit parts: one fixed furnishing per footprint and variant, the same on every ship ----------------
+  // Laid out in the part's own frame (short side across, origin top left) with the door slots kept free, then
+  // copied into the room, turned a quarter clockwise when the part is laid the other way round.
+  const KIT_CACHE = new Map();
+  DP.kitVariant = function (style, w, h, variant) {
+    const ck = style + '/' + w + 'x' + h + '/' + variant;
+    if (KIT_CACHE.has(ck)) return KIT_CACHE.get(ck);
+    const st = DP.KIT.styles[style];
+    const type = !st ? 'lift' : w * h >= 36 ? st.hall : st.small;
+    const cells = []; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) cells.push([x, y]);
+    const fake = { W: w, H: h, reserved: new Set(DP.kitSlots({ x: 0, y: 0, w, h }).map(([x, y]) => K(x, y))), pinned: new Set(), cuts: new Map(), props: [], decor: [], kit: true };
+    const room = { id: 0, type, kind: 'room', cells, set: new Set(cells.map(([x, y]) => K(x, y))), bbox: { x0: 0, y0: 0, x1: w, y1: h, w, h } };
+    const api = makeApi(fake, room, DP.makeRng('kit/' + ck), new Set());
+    if (type !== 'lift' && type !== 'corridor') (R[type] || TINT_FALLBACK[(DP.ROOMS[type] || {}).tint] || R.hold)(api);
+    const v = { props: fake.props, decor: fake.decor, w, h, style, type, variant };
+    KIT_CACHE.set(ck, v);
+    return v;
+  };
+  const TURN = { N: 'E', E: 'S', S: 'W', W: 'N' };
+  function kitPlace(sec, room, occ) {
+    const v = DP.kitVariant(room.part.style, room.part.w, room.part.h, room.part.variant);
+    const b = room.bbox, ch = room.part.h, turned = room.part.rot === 90;
+    for (const p of v.props) {
+      const q = turned ? { x: b.x0 + (ch - p.y - p.h), y: b.y0 + p.x, w: p.h, h: p.w, rot: (p.rot + 90) % 360 } : { x: b.x0 + p.x, y: b.y0 + p.y, w: p.w, h: p.h, rot: p.rot };
+      const np = Object.assign({}, p, q, { room: room.id });
+      // a door forced off its slots takes the square; the piece's prop there is left off the map
+      let blocked = false;
+      for (let yy = np.y; yy < np.y + np.h; yy++) for (let xx = np.x; xx < np.x + np.w; xx++) if (sec.reserved.has(K(xx, yy))) blocked = true;
+      if (blocked) { room.displaced = (room.displaced || 0) + 1; continue; }
+      for (let yy = np.y; yy < np.y + np.h; yy++) for (let xx = np.x; xx < np.x + np.w; xx++) occ.add(K(xx, yy));
+      sec.props.push(np);
+    }
+    for (const d of v.decor) {
+      const nd = Object.assign({}, d, { room: room.id });
+      if (!turned) { nd.x = b.x0 + d.x; nd.y = b.y0 + d.y; if (d.x2 != null) { nd.x2 = b.x0 + d.x2; nd.y2 = b.y0 + d.y2; } }
+      else if (d.t === 'pipe') { nd.x = b.x0 + (ch - 1 - d.y); nd.y = b.y0 + d.x; nd.x2 = b.x0 + (ch - 1 - d.y2); nd.y2 = b.y0 + d.x2; nd.side = TURN[d.side]; if (nd.y > nd.y2) [nd.y, nd.y2] = [nd.y2, nd.y]; if (nd.x > nd.x2) [nd.x, nd.x2] = [nd.x2, nd.x]; }
+      else { nd.x = b.x0 + (ch - d.y); nd.y = b.y0 + d.x; nd.a = (d.a || 0) + 90; if (d.side) nd.side = TURN[d.side]; }
+      sec.decor.push(nd);
+    }
   }
 
   DP.furnishSector = function (ship, sec, rng) {
@@ -207,9 +249,10 @@
       room.ladders = room.ladders || []; room.ladders.push(L.dir); L.px = L.x; L.py = L.y; L.placed = true;
     }
     for (const room of sec.rooms) {
-      if (!room.cells.length) continue;
+      if (!room.cells.length || room.kind === 'structure') continue;
       const api = makeApi(sec, room, rng.fork('r' + room.id), occ);
       if (room.kind === 'corridor') furnishCorridor(sec, room, rng, occ, api);
+      else if (room.part) kitPlace(sec, room, occ);
       else { const fn = R[room.type] || TINT_FALLBACK[(DP.ROOMS[room.type] || {}).tint] || R.hold; fn(api); }
       // wear and tear
       const wear = ship.condition === 'derelict' ? 2 : ship.condition === 'rundown' ? 1 : 0;

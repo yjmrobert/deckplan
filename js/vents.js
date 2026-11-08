@@ -96,13 +96,13 @@
       ports.push({ kind: 'cross', side: c.side, t: c.t, x: cells[0][0], y: cells[0][1], cells, to: DP.sectorLabel(ship, d, nf, nl) });
     }
     const occ = sec.occ || new Set();
-    const free = (x, y) => !occ.has(K(x, y)) && !sec.reserved.has(K(x, y)) && !sec.pinned.has(K(x, y));
+    const free = (x, y) => !occ.has(K(x, y)) && !sec.reserved.has(K(x, y)) && !sec.pinned.has(K(x, y)) && !sec.slots.has(K(x, y));
     const grilleCands = (r) => {
       const c = r.cells.filter(([x, y]) => nodeSet.has(K(x, y)) && free(x, y));
       const byWall = (x, y) => (r.set.has(K(x - 1, y)) && r.set.has(K(x + 1, y)) && r.set.has(K(x, y - 1)) && r.set.has(K(x, y + 1))) ? 1 : 0;
       return rng.shuffle(c).sort((a, b) => byWall(a[0], a[1]) - byWall(b[0], b[1]));
     };
-    const eligible = sec.rooms.filter(r => r.cells.length && r.type !== 'lift' && r.type !== 'void' && r.type !== 'airlock' && (r.kind === 'room' ? r.cells.length >= 6 : r.cells.length >= 12));
+    const eligible = sec.rooms.filter(r => r.cells.length && r.kind !== 'structure' && r.type !== 'lift' && r.type !== 'void' && r.type !== 'airlock' && (r.kind === 'room' ? r.cells.length >= 6 : r.cells.length >= 12));
     const grilles = [];
     const addGrille = (r) => { const c = grilleCands(r); if (!c.length) return false; const [x, y] = c[0]; occ.add(K(x, y)); sec.props.push({ t: 'grille', x, y, w: 1, h: 1, rot: 0, room: r.id }); r.grille = true; const p = { kind: 'grille', x, y, room: r.id }; ports.push(p); grilles.push(p); return true; };
     for (const r of eligible) {

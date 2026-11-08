@@ -18,7 +18,9 @@
   <label><span>Class</span><select id="cls"></select></label>
   <label><span>Sector size</span><select id="size"></select></label>
   <label><span>Condition</span><select id="condition"></select></label>
+  <label><span>Build</span><select id="build"></select></label>
   <div class="row"><button id="randomship" class="primary">New ship</button></div>
+  <p class="hint">Kit build lays every room out of a fixed set of standard parts, so you print the parts once and reuse them; the key lists what each sector needs.</p>
 
   <h3>Sector</h3>
   <div class="decks" id="decks"></div>
@@ -28,13 +30,14 @@
   <h3>Look</h3>
   <label><span>Style</span><select id="mode"><option value="color">Colour</option><option value="plan">Plan (black and white)</option></select></label>
   <label><span>Theme</span><select id="theme"></select></label>
-  <label><span>Labels</span><select id="labels"><option value="numbers">Numbers</option><option value="both">Numbers and names</option><option value="names">Names</option><option value="none">None</option></select></label>
+  <label><span>Labels</span><select id="labels"><option value="numbers">Numbers</option><option value="both">Numbers and names</option><option value="names">Names</option><option value="parts">Numbers and part codes</option><option value="none">None</option></select></label>
   <label><span>Zones</span><input id="zones" type="checkbox"></label>
   <label><span>Page grid</span><input id="pagegrid" type="checkbox"></label>
   <label><span>Zoom</span><input id="zoom" type="range" min="8" max="40" value="18"></label>
 
   <h3>Print and export</h3>
-  <label><span>Layout</span><select id="playout"><option value="tiles">Whole sector, tiled pages</option><option value="rooms">Room by room pieces</option><option value="vents">Vent layer, tiled pages</option></select></label>
+  <label><span>Layout</span><select id="playout"><option value="tiles">Whole sector, tiled pages</option><option value="rooms">Room by room pieces</option><option value="vents">Vent layer, tiled pages</option><option value="placement">Kit: placement sheet (tiles with part codes)</option><option value="kit">Kit: one of each part, tokens, parts list</option></select></label>
+  <label><span>Kit scope</span><select id="kscope"><option value="sector">This sector</option><option value="deck">This deck</option><option value="ship">Whole ship</option></select></label>
   <label><span>Square size</span><select id="pscale"></select></label>
   <label><span>Background</span><select id="pbg"><option value="white">White (saves ink)</option><option value="space">Space black</option></select></label>
   <label><span>Key page</span><input id="pkey" type="checkbox" checked></label>
